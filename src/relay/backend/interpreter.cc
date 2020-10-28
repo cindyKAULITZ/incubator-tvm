@@ -284,7 +284,7 @@ class Interpreter : public ExprFunctor<ObjectRef(const Expr& n)>,
   }
 
   Array<Shape> ComputeDynamicShape(const Function& func, const Array<ObjectRef>& args) {
-    CCacheKey key(func, Target("llvm"));
+    CCacheKey key(func, Target::Create("llvm"));
     auto cfunc = engine_->LowerShapeFunc(key);
     size_t arity = cfunc->inputs.size() + cfunc->outputs.size();
 

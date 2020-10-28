@@ -23,8 +23,9 @@ import os
 from .._ffi.base import py_str
 from .cc import get_target_by_dump_machine
 
-
-def create_shared(output, objects, options=None):
+def create_shared(output,
+                  objects,
+                  options=None):
     """Create shared library.
 
     Parameters
@@ -39,9 +40,8 @@ def create_shared(output, objects, options=None):
         The additional options.
     """
     if "TVM_NDK_CC" not in os.environ:
-        raise RuntimeError(
-            "Require environment variable TVM_NDK_CC" " to be the NDK standalone compiler"
-        )
+        raise RuntimeError("Require environment variable TVM_NDK_CC"
+                           " to be the NDK standalone compiler")
     compiler = os.environ["TVM_NDK_CC"]
     cmd = [compiler]
     cmd += ["-o", output]
@@ -54,7 +54,10 @@ def create_shared(output, objects, options=None):
     options = options if options else ["-shared", "-fPIC", "-lm"]
     cmd += options
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT)
     (out, _) = proc.communicate()
 
     if proc.returncode != 0:
@@ -65,6 +68,5 @@ def create_shared(output, objects, options=None):
 
 # assign output format
 create_shared.output_format = "so"
-create_shared.get_target_triple = (
-    get_target_by_dump_machine(os.environ["TVM_NDK_CC"]) if "TVM_NDK_CC" in os.environ else None
-)
+create_shared.get_target_triple = get_target_by_dump_machine(
+    os.environ["TVM_NDK_CC"]) if "TVM_NDK_CC" in os.environ else None

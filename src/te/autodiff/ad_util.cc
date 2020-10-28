@@ -55,13 +55,9 @@ PrimExpr CloneReduction(const PrimExpr& expr) {
     for (const auto& src : red->source) {
       src_with_newaxis.push_back(tir::Substitute(src, vmap));
     }
-    Array<PrimExpr> init_with_newaxis;
-    for (const auto& init : red->init) {
-      init_with_newaxis.push_back(tir::Substitute(init, vmap));
-    }
 
     return Reduce(red->combiner, src_with_newaxis, new_axis, tir::Substitute(red->condition, vmap),
-                  red->value_index, init_with_newaxis);
+                  red->value_index);
   } else {
     return expr;
   }
@@ -86,8 +82,7 @@ Operation ComputeOpFromExprs(const Array<PrimExpr>& exprs, const Array<IterVar>&
   // If this is a reduction then we have to replicate it
   if (const ReduceNode* red = exprs[0].as<ReduceNode>()) {
     for (size_t i = 0; i < red->source.size(); ++i) {
-      PrimExpr ith_red =
-          Reduce(red->combiner, red->source, red->axis, red->condition, i, red->init);
+      PrimExpr ith_red = Reduce(red->combiner, red->source, red->axis, red->condition, i);
       new_exprs.push_back(ith_red);
     }
   } else {

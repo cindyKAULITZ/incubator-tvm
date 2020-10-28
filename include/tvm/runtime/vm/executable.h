@@ -161,8 +161,6 @@ class Executable : public ModuleNode {
   std::unordered_map<std::string, Index> primitive_map;
   /*! \brief The virtual machine's function table. */
   std::vector<VMFunction> functions;
-  /*! \brief The device type for each constant. */
-  std::vector<Index> const_device_type;
 
  private:
   /*!

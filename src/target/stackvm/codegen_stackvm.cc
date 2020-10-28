@@ -510,7 +510,7 @@ void CodeGenStackVM::VisitExpr_(const LetNode* op) {
   this->Push(op->body);
 }
 
-runtime::Module BuildStackVM(IRModule mod, Target target) {
+runtime::Module BuildStackVM(const IRModule& mod, const std::string& target) {
   std::unordered_map<std::string, StackVM> fmap;
   std::string entry_func;
 

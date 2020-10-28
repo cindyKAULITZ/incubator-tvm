@@ -25,7 +25,6 @@ def make_rel(name, args, num_inputs=None, attrs=None):
         num_inputs = len(args) - 1
     return relay.ty.TypeRelation(func, args, num_inputs, attrs)
 
-
 def make_solver():
     solver = relay.analysis._ffi_api._test_type_solver()
     solver.Solve = solver("Solve")
@@ -82,14 +81,14 @@ def test_unify_tuple():
 def test_unify_global_type_var():
     # should only be able to unify if they're the same
     solver = make_solver()
-    gtv = relay.GlobalTypeVar("gtv")
+    gtv = relay.GlobalTypeVar('gtv')
     unified = solver.Unify(gtv, gtv)
     assert unified == gtv
 
 
 def test_unify_typecall():
     solver = make_solver()
-    gtv = relay.GlobalTypeVar("gtv")
+    gtv = relay.GlobalTypeVar('gtv')
 
     # yeah, typecalls are shaped like tuples so the same
     # tests work out
@@ -154,7 +153,7 @@ def test_unify_vars_under_tuples():
     tup3 = relay.ty.TupleType([t1, t2])
     tup4 = relay.ty.TupleType([t2, t1])
     unified = solver.Unify(tup3, tup4)
-    assert unified == tup1 or unified == tup2
+    assert (unified == tup1 or unified == tup2)
 
 
 def test_binding_over_typevars():
@@ -163,15 +162,15 @@ def test_binding_over_typevars():
     t1 = relay.ty.IncompleteType()
     t2 = relay.ty.IncompleteType()
 
-    a = relay.ty.TypeVar("a")
-    b = relay.ty.TypeVar("b")
-    c = relay.ty.TypeVar("c")
-    d = relay.ty.TypeVar("d")
+    a = relay.ty.TypeVar('a')
+    b = relay.ty.TypeVar('b')
+    c = relay.ty.TypeVar('c')
+    d = relay.ty.TypeVar('d')
 
     ft1 = relay.ty.FuncType([t1], t2, [c, d])
     ft2 = relay.ty.FuncType([a], b, [a, b])
     unified = solver.Unify(ft1, ft2)
-    assert unified == solver.Resolve(ft1)
+    assert (unified == solver.Resolve(ft1))
 
 
 def test_recursive_backward_solving():
@@ -227,7 +226,7 @@ def test_backward_solving_after_child_update():
 
 def test_unify_quantified_funcs():
     solver = make_solver()
-    a, b, c = relay.TypeVar("a"), relay.TypeVar("b"), relay.TypeVar("c")
+    a, b, c = relay.TypeVar('a'), relay.TypeVar('b'), relay.TypeVar('c')
     ft1 = relay.FuncType([a, b], c, [a, b, c])
     ft2 = relay.FuncType([a, a], a, [a])
     unified = solver.Unify(ft1, ft2)
@@ -241,7 +240,7 @@ def test_unify_quantified_funcs():
 
 def test_unify_quantified_func_and_concrete():
     solver = make_solver()
-    a, b = relay.TypeVar("a"), relay.TypeVar("b")
+    a, b = relay.TypeVar('a'), relay.TypeVar('b')
     ft1 = relay.FuncType([a], b, [a, b])
     ft2 = relay.FuncType([b], relay.TupleType([]), [b])
     unified = solver.Unify(ft1, ft2)
@@ -250,7 +249,7 @@ def test_unify_quantified_func_and_concrete():
 
 def test_unify_quantified_funcs_nesting():
     solver = make_solver()
-    a, b, c = relay.TypeVar("a"), relay.TypeVar("b"), relay.TypeVar("c")
+    a, b, c = relay.TypeVar('a'), relay.TypeVar('b'), relay.TypeVar('c')
 
     ft1 = relay.FuncType([a, relay.TupleType([b, c])], relay.TupleType([a, b, c]), [a, b, c])
     ft2 = relay.FuncType([a, relay.TupleType([a, a])], relay.TupleType([a, a, a]), [a])
@@ -260,7 +259,7 @@ def test_unify_quantified_funcs_nesting():
 
 def test_unify_quantified_funcs_var_order():
     solver = make_solver()
-    a, b, c = relay.TypeVar("a"), relay.TypeVar("b"), relay.TypeVar("c")
+    a, b, c = relay.TypeVar('a'), relay.TypeVar('b'), relay.TypeVar('c')
 
     ft1 = relay.FuncType([a, relay.TupleType([b, c])], relay.TupleType([a, b, c]), [a, b, c])
     ft2 = relay.FuncType([a, relay.TupleType([a, c])], relay.TupleType([a, a, c]), [a, c])
@@ -293,16 +292,16 @@ def test_bad_recursive_unification():
 @pytest.mark.xfail(raises=tvm._ffi.base.TVMError)
 def test_unify_invalid_global_typevars():
     solver = make_solver()
-    gtv1 = relay.GlobalTypeVar("gtv1")
-    gtv2 = relay.GlobalTypeVar("gtv2")
+    gtv1 = relay.GlobalTypeVar('gtv1')
+    gtv2 = relay.GlobalTypeVar('gtv2')
     solver.Unify(gtv1, gtv2)
 
 
 @pytest.mark.xfail(raises=tvm._ffi.base.TVMError)
 def test_incompatible_typecall_var_unification():
     solver = make_solver()
-    gtv1 = relay.GlobalTypeVar("gtv1")
-    gtv2 = relay.GlobalTypeVar("gtv2")
+    gtv1 = relay.GlobalTypeVar('gtv1')
+    gtv2 = relay.GlobalTypeVar('gtv2')
 
     t1 = relay.IncompleteType()
     t2 = relay.IncompleteType()
@@ -315,7 +314,7 @@ def test_incompatible_typecall_var_unification():
 @pytest.mark.xfail(raises=tvm._ffi.base.TVMError)
 def test_incompatible_typecall_args_unification():
     solver = make_solver()
-    gtv = relay.GlobalTypeVar("gtv1")
+    gtv = relay.GlobalTypeVar('gtv1')
     t1 = relay.IncompleteType()
     t2 = relay.IncompleteType()
 
@@ -331,7 +330,7 @@ def test_incompatible_typecall_args_unification():
 @pytest.mark.xfail(raises=tvm._ffi.base.TVMError)
 def test_incompatible_quantified_func_unification():
     solver = make_solver()
-    a, b, c = relay.TypeVar("a"), relay.TypeVar("b"), relay.TypeVar("c")
+    a, b, c = relay.TypeVar('a'), relay.TypeVar('b'), relay.TypeVar('c')
 
     ft1 = relay.FuncType([a, b], c, [a, b, c])
     ft2 = relay.FuncType([b, c], relay.TupleType([a]), [a, b, c])

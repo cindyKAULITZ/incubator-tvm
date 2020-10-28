@@ -31,7 +31,7 @@
 #include <memory>
 #include <string>
 
-#include "../minrpc/rpc_reference.h"
+#include "rpc_protocol.h"
 
 namespace tvm {
 namespace runtime {

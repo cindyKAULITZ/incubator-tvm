@@ -21,16 +21,12 @@ import struct
 from ..base import py_str, check_call, _LIB
 from ..runtime_ctypes import TVMByteArray, ArgTypeCode, TVMContext
 
-
 class TVMValue(ctypes.Union):
     """TVMValue in C API"""
-
-    _fields_ = [
-        ("v_int64", ctypes.c_int64),
-        ("v_float64", ctypes.c_double),
-        ("v_handle", ctypes.c_void_p),
-        ("v_str", ctypes.c_char_p),
-    ]
+    _fields_ = [("v_int64", ctypes.c_int64),
+                ("v_float64", ctypes.c_double),
+                ("v_handle", ctypes.c_void_p),
+                ("v_str", ctypes.c_char_p)]
 
 
 TVMPackedCFunc = ctypes.CFUNCTYPE(
@@ -39,11 +35,12 @@ TVMPackedCFunc = ctypes.CFUNCTYPE(
     ctypes.POINTER(ctypes.c_int),
     ctypes.c_int,
     ctypes.c_void_p,
-    ctypes.c_void_p,
-)
+    ctypes.c_void_p)
 
 
-TVMCFuncFinalizer = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+TVMCFuncFinalizer = ctypes.CFUNCTYPE(
+    None,
+    ctypes.c_void_p)
 
 
 def _return_handle(x):
@@ -52,7 +49,6 @@ def _return_handle(x):
     if not isinstance(handle, ctypes.c_void_p):
         handle = ctypes.c_void_p(handle)
     return handle
-
 
 def _return_bytes(x):
     """return bytes"""
@@ -64,9 +60,8 @@ def _return_bytes(x):
     res = bytearray(size)
     rptr = (ctypes.c_byte * size).from_buffer(res)
     if not ctypes.memmove(rptr, arr.data, size):
-        raise RuntimeError("memmove failed")
+        raise RuntimeError('memmove failed')
     return res
-
 
 def _return_context(value):
     """return TVMContext"""
@@ -82,9 +77,7 @@ def _wrap_arg_func(return_f, type_code):
         tcode = ctypes.c_int(type_code)
         check_call(_LIB.TVMCbArgToReturn(ctypes.byref(x), ctypes.byref(tcode)))
         return return_f(x)
-
     return _wrap_func
-
 
 def _ctx_to_int64(ctx):
     """Pack context into int64 in native endian"""
@@ -99,7 +92,7 @@ RETURN_SWITCH = {
     ArgTypeCode.NULL: lambda x: None,
     ArgTypeCode.STR: lambda x: py_str(x.v_str),
     ArgTypeCode.BYTES: _return_bytes,
-    ArgTypeCode.TVM_CONTEXT: _return_context,
+    ArgTypeCode.TVM_CONTEXT: _return_context
 }
 
 C_TO_PY_ARG_SWITCH = {
@@ -109,5 +102,5 @@ C_TO_PY_ARG_SWITCH = {
     ArgTypeCode.NULL: lambda x: None,
     ArgTypeCode.STR: lambda x: py_str(x.v_str),
     ArgTypeCode.BYTES: _return_bytes,
-    ArgTypeCode.TVM_CONTEXT: _return_context,
+    ArgTypeCode.TVM_CONTEXT: _return_context
 }

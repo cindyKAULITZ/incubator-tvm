@@ -25,7 +25,6 @@ from . import _ffi_api
 
 class Type(Node):
     """The base class of all types."""
-
     def __eq__(self, other):
         """Compare two types for structural equivalence."""
         return bool(tvm.ir.structural_equal(self, other))
@@ -40,7 +39,6 @@ class Type(Node):
 
 class TypeKind(IntEnum):
     """Possible kinds of TypeVars."""
-
     Type = 0
     ShapeVar = 1
     BaseType = 2
@@ -58,9 +56,9 @@ class PrimType(Type):
     dtype : str
         The runtime data type relates to the primtype.
     """
-
     def __init__(self, dtype):
-        self.__init_handle_by_constructor__(_ffi_api.PrimType, dtype)
+        self.__init_handle_by_constructor__(
+            _ffi_api.PrimType, dtype)
 
 
 @tvm._ffi.register_object("PointerType")
@@ -72,9 +70,9 @@ class PointerType(Type):
     element_type : tvm.ir.Type
         The type of pointer's element.
     """
-
     def __init__(self, element_type):
-        self.__init_handle_by_constructor__(_ffi_api.PointerType, element_type)
+        self.__init_handle_by_constructor__(
+            _ffi_api.PointerType, element_type)
 
 
 @tvm._ffi.register_object("TypeVar")
@@ -94,9 +92,9 @@ class TypeVar(Type):
     kind : Optional[TypeKind]
         The kind of the type parameter.
     """
-
     def __init__(self, name_hint, kind=TypeKind.Type):
-        self.__init_handle_by_constructor__(_ffi_api.TypeVar, name_hint, kind)
+        self.__init_handle_by_constructor__(
+            _ffi_api.TypeVar, name_hint, kind)
 
     def __call__(self, *args):
         """Create a type call from this type.
@@ -113,7 +111,6 @@ class TypeVar(Type):
         """
         # pylint: disable=import-outside-toplevel
         from .type_relation import TypeCall
-
         return TypeCall(self, args)
 
 
@@ -130,9 +127,9 @@ class GlobalTypeVar(Type):
     kind : Optional[TypeKind]
         The kind of the type parameter.
     """
-
     def __init__(self, name_hint, kind=TypeKind.AdtHandle):
-        self.__init_handle_by_constructor__(_ffi_api.GlobalTypeVar, name_hint, kind)
+        self.__init_handle_by_constructor__(
+            _ffi_api.GlobalTypeVar, name_hint, kind)
 
     def __call__(self, *args):
         """Create a type call from this type.
@@ -149,7 +146,6 @@ class GlobalTypeVar(Type):
         """
         # pylint: disable=import-outside-toplevel
         from .type_relation import TypeCall
-
         return TypeCall(self, args)
 
 
@@ -164,7 +160,8 @@ class TupleType(Type):
     """
 
     def __init__(self, fields):
-        self.__init_handle_by_constructor__(_ffi_api.TupleType, fields)
+        self.__init_handle_by_constructor__(
+            _ffi_api.TupleType, fields)
 
 
 @tvm._ffi.register_object("TypeConstraint")
@@ -198,15 +195,17 @@ class FuncType(Type):
     type_constraints : Optional[List[tvm.relay.TypeConstraint]]
         The type constraints.
     """
-
-    def __init__(self, arg_types, ret_type, type_params=None, type_constraints=None):
+    def __init__(self,
+                 arg_types,
+                 ret_type,
+                 type_params=None,
+                 type_constraints=None):
         if type_params is None:
             type_params = []
         if type_constraints is None:
             type_constraints = []
         self.__init_handle_by_constructor__(
-            _ffi_api.FuncType, arg_types, ret_type, type_params, type_constraints
-        )
+            _ffi_api.FuncType, arg_types, ret_type, type_params, type_constraints)
 
 
 @tvm._ffi.register_object("IncompleteType")
@@ -216,9 +215,9 @@ class IncompleteType(Type):
     kind : Optional[TypeKind]
         The kind of the incomplete type.
     """
-
     def __init__(self, kind=TypeKind.Type):
-        self.__init_handle_by_constructor__(_ffi_api.IncompleteType, kind)
+        self.__init_handle_by_constructor__(
+            _ffi_api.IncompleteType, kind)
 
 
 @tvm._ffi.register_object("relay.RefType")
@@ -230,6 +229,5 @@ class RelayRefType(Type):
     value: Type
         The value type.
     """
-
     def __init__(self, value):
         self.__init_handle_by_constructor__(_ffi_api.RelayRefType, value)

@@ -428,8 +428,7 @@ IRModule RemoveDefaultAnnotations(IRModule module) {
  */
 
 // New annotations would be required to be added for each flattened output
-static const PackedFunc* make_end_op =
-    runtime::Registry::Get("relay.op.annotation._make.compiler_end");
+const PackedFunc* make_end_op = runtime::Registry::Get("relay.op.annotation._make.compiler_end");
 
 IRModule FlattenTupleOutputs(IRModule module) {
   class TupleOutFlattener : public ExprRewriter {

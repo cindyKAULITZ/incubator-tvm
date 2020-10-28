@@ -19,7 +19,6 @@
 
 #include <dmlc/logging.h>
 #include <gtest/gtest.h>
-#include <tvm/ir/expr.h>
 #include <tvm/target/target.h>
 
 #include <cmath>
@@ -27,7 +26,7 @@
 
 using namespace tvm;
 
-TVM_REGISTER_TARGET_KIND("TestTargetKind", kDLCPU)
+TVM_REGISTER_TARGET_KIND("TestTargetKind")
     .set_attr<std::string>("Attr1", "Value1")
     .add_attr_option<Bool>("my_bool")
     .add_attr_option<Array<String>>("your_names")
@@ -35,7 +34,7 @@ TVM_REGISTER_TARGET_KIND("TestTargetKind", kDLCPU)
 
 TEST(TargetKind, GetAttrMap) {
   auto map = tvm::TargetKind::GetAttrMap<std::string>("Attr1");
-  auto target_kind = tvm::TargetKind::Get("TestTargetKind").value();
+  auto target_kind = tvm::TargetKind::Get("TestTargetKind");
   std::string result = map[target_kind];
   CHECK_EQ(result, "Value1");
 }
@@ -53,8 +52,8 @@ TEST(TargetCreation, NestedConfig) {
           },
       },
   };
-  Target target = Target(config);
-  CHECK_EQ(target->kind, TargetKind::Get("TestTargetKind").value());
+  Target target = Target::FromConfig(config);
+  CHECK_EQ(target->kind, TargetKind::Get("TestTargetKind"));
   CHECK_EQ(target->tag, "");
   CHECK(target->keys.empty());
   Bool my_bool = target->GetAttr<Bool>("my_bool").value();
@@ -85,7 +84,7 @@ TEST(TargetCreationFail, UnrecognizedConfigOption) {
   };
   bool failed = false;
   try {
-    Target tgt(config);
+    Target::FromConfig(config);
   } catch (...) {
     failed = true;
   }
@@ -107,7 +106,7 @@ TEST(TargetCreationFail, TypeMismatch) {
   };
   bool failed = false;
   try {
-    Target tgt(config);
+    Target::FromConfig(config);
   } catch (...) {
     failed = true;
   }
@@ -128,7 +127,7 @@ TEST(TargetCreationFail, TargetKindNotFound) {
   };
   bool failed = false;
   try {
-    Target tgt(config);
+    Target::FromConfig(config);
   } catch (...) {
     failed = true;
   }
@@ -141,8 +140,8 @@ TEST(TargetCreation, DeduplicateKeys) {
       {"keys", Array<String>{"cpu", "arm_cpu"}},
       {"device", String("arm_cpu")},
   };
-  Target target = Target(config);
-  CHECK_EQ(target->kind, TargetKind::Get("llvm").value());
+  Target target = Target::FromConfig(config);
+  CHECK_EQ(target->kind, TargetKind::Get("llvm"));
   CHECK_EQ(target->tag, "");
   CHECK_EQ(target->keys.size(), 2U);
   CHECK_EQ(target->keys[0], "cpu");

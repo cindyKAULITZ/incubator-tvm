@@ -160,7 +160,7 @@ struct TypeIndex {
  *
  * \endcode
  */
-class TVM_DLL Object {
+class Object {
  public:
   /*!
    * \brief Object deleter
@@ -191,19 +191,19 @@ class TVM_DLL Object {
    * \param tindex The type index.
    * \return the result.
    */
-  static std::string TypeIndex2Key(uint32_t tindex);
+  TVM_DLL static std::string TypeIndex2Key(uint32_t tindex);
   /*!
    * \brief Get the type key hash of the corresponding index from runtime.
    * \param tindex The type index.
    * \return the related key-hash.
    */
-  static size_t TypeIndex2KeyHash(uint32_t tindex);
+  TVM_DLL static size_t TypeIndex2KeyHash(uint32_t tindex);
   /*!
    * \brief Get the type index of the corresponding key from runtime.
    * \param key The type key.
    * \return the result.
    */
-  static uint32_t TypeKey2Index(const std::string& key);
+  TVM_DLL static uint32_t TypeKey2Index(const std::string& key);
 
 #if TVM_OBJECT_ATOMIC_REF_COUNTER
   using RefCounterType = std::atomic<int32_t>;
@@ -281,9 +281,10 @@ class TVM_DLL Object {
    * \param type_child_slots_can_overflow Whether to allow child to overflow the slots.
    * \return The allocated type index.
    */
-  static uint32_t GetOrAllocRuntimeTypeIndex(const std::string& key, uint32_t static_tindex,
-                                             uint32_t parent_tindex, uint32_t type_child_slots,
-                                             bool type_child_slots_can_overflow);
+  TVM_DLL static uint32_t GetOrAllocRuntimeTypeIndex(const std::string& key, uint32_t static_tindex,
+                                                     uint32_t parent_tindex,
+                                                     uint32_t type_child_slots,
+                                                     bool type_child_slots_can_overflow);
 
   // reference counter related operations
   /*! \brief developer function, increases reference counter. */
@@ -305,7 +306,7 @@ class TVM_DLL Object {
    * \param parent_tindex The parent type index.
    * \return The derivation results.
    */
-  bool DerivedFrom(uint32_t parent_tindex) const;
+  TVM_DLL bool DerivedFrom(uint32_t parent_tindex) const;
   // friend classes
   template <typename>
   friend class ObjAllocatorBase;

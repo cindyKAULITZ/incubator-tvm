@@ -149,12 +149,8 @@ inline std::string DType2String(const tvm::DataType dtype) {
     os << "int";
   } else if (dtype.is_uint()) {
     os << "uint";
-  } else if ((*GetPackedFunc("runtime._datatype_get_type_registered"))(dtype.code())) {
-    os << "custom["
-       << (*GetPackedFunc("runtime._datatype_get_type_name"))(dtype.code()).operator std::string()
-       << "]";
   } else {
-    LOG(FATAL) << "Unknown type with code " << static_cast<unsigned>(dtype.code());
+    LOG(FATAL) << "Unknown type";
   }
   os << dtype.bits();
   return os.str();

@@ -24,7 +24,6 @@ from .expr import If, Tuple, TupleGetItem, Constant
 from .expr import RefCreate, RefRead, RefWrite
 from .adt import Constructor, Match, Clause
 
-
 class ExprFunctor:
     """
     An abstract visitor defined over Expr.
@@ -32,7 +31,6 @@ class ExprFunctor:
     Defines the default dispatch over expressions, and
     implements memoization.
     """
-
     def __init__(self):
         self.memo_map = {}
 
@@ -134,7 +132,6 @@ class ExprVisitor(ExprFunctor):
 
     The default behavior recursively traverses the AST.
     """
-
     def visit_tuple(self, tup):
         for x in tup.fields:
             self.visit(x)
@@ -198,11 +195,15 @@ class ExprMutator(ExprFunctor):
     The default behavior recursively traverses the AST
     and reconstructs the AST.
     """
-
     def visit_function(self, fn):
         new_params = [self.visit(x) for x in fn.params]
         new_body = self.visit(fn.body)
-        return Function(list(new_params), new_body, fn.ret_type, fn.type_params, fn.attrs)
+        return Function(
+            list(new_params),
+            new_body,
+            fn.ret_type,
+            fn.type_params,
+            fn.attrs)
 
     def visit_let(self, let):
         new_var = self.visit(let.var)
@@ -222,7 +223,10 @@ class ExprMutator(ExprFunctor):
         return global_var
 
     def visit_if(self, ite):
-        return If(self.visit(ite.cond), self.visit(ite.true_branch), self.visit(ite.false_branch))
+        return If(
+            self.visit(ite.cond),
+            self.visit(ite.true_branch),
+            self.visit(ite.false_branch))
 
     def visit_tuple(self, tup):
         return Tuple([self.visit(field) for field in tup.fields])
@@ -249,8 +253,7 @@ class ExprMutator(ExprFunctor):
         return Match(
             self.visit(m.data),
             [Clause(c.lhs, self.visit(c.rhs)) for c in m.clauses],
-            complete=m.complete,
-        )
+            complete=m.complete)
 
     def visit_ref_create(self, r):
         return RefCreate(self.visit(r.value))

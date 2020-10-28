@@ -20,7 +20,6 @@ import tvm._ffi
 from tvm.runtime import Object
 from . import _ffi_api
 
-
 @tvm._ffi.register_object("tir.Layout")
 class Layout(Object):
     """Layout is composed of upper cases, lower cases and numbers,
@@ -34,7 +33,6 @@ class Layout(Object):
     --------
     layout : Declare a layout
     """
-
     def __len__(self):
         return _ffi_api.LayoutNdim(self)
 
@@ -99,7 +97,6 @@ class BijectiveLayout(Object):
     --------
     bijective_layout : Declare a layout
     """
-
     def forward_index(self, index):
         """Given the indices of the src-layout, infer the dst index.
 

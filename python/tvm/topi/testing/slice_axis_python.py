@@ -16,7 +16,6 @@
 # under the License.
 """Slice axis in python"""
 
-
 def slice_axis_python(data, axis, begin, end=None):
     """Slice input array along specific axis.
 

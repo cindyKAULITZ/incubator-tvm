@@ -121,7 +121,7 @@ std::string NVRTCCompile(const std::string& code, bool include_path = false) {
   return ptx;
 }
 
-runtime::Module BuildCUDA(IRModule mod, Target target) {
+runtime::Module BuildCUDA(IRModule mod, std::string target) {
   using tvm::runtime::Registry;
   bool output_ssa = false;
   CodeGenCUDA cg;

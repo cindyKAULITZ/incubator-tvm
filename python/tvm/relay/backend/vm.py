@@ -27,6 +27,7 @@ import tvm.runtime.ndarray as _nd
 import tvm.runtime.vm as vm_rt
 from tvm import autotvm
 from tvm.relay import expr as _expr
+from tvm.relay.ty import is_dynamic
 from tvm.relay.backend.interpreter import Executor
 from . import _vm
 
@@ -138,7 +139,7 @@ class VMCompiler(object):
         """Generate the kernel library."""
         self._codegen()
 
-    def optimize(self, mod, target=None, target_host=None, params=None):
+    def optimize(self, mod, target=None, params=None):
         """Helper method that optimizes a Relay module via VM.
 
         Parameters
@@ -147,11 +148,6 @@ class VMCompiler(object):
 
         target : str, :any:`tvm.target.Target`, or dict of str (i.e.
             device/context name) to str/tvm.target.Target, optional
-
-        target_host : str or :any:`tvm.target.Target`, optional
-            The compilation target for host.
-            By default, llvm is used if it is enabled,
-            otherwise a stackvm intepreter is used.
 
         params : dict of str to NDArray
             Input parameters to the graph that do not change
@@ -166,10 +162,9 @@ class VMCompiler(object):
             The parameters of the final module.
         """
         target = self._update_target(target)
-        target_host = self._update_target_host(target, target_host)
         if params:
             self.set_params(params)
-        return self._optimize(mod, target, target_host), self.get_params()
+        return self._optimize(mod, target), self.get_params()
 
     def get_exec(self):
         """Get the VM executable.
@@ -189,17 +184,15 @@ class VMCompiler(object):
         tgts = {}
         if isinstance(target, (str, tvm.target.Target)):
             dev_type = tvm.tir.IntImm("int32", tvm.nd.context(str(target)).device_type)
-            tgts[dev_type] = tvm.target.Target(target)
+            tgts[dev_type] = tvm.target.create(target)
         elif isinstance(target, dict):
             for dev, tgt in target.items():
                 dev_type = tvm.tir.IntImm("int32", tvm.nd.context(dev).device_type)
-                tgts[dev_type] = tvm.target.Target(tgt)
+                tgts[dev_type] = tvm.target.create(tgt)
         else:
-            raise TypeError(
-                "target is expected to be str, tvm.target.Target, "
-                + "or dict of str to str/tvm.target.Target, but received "
-                + "{}".format(type(target))
-            )
+            raise TypeError("target is expected to be str, tvm.target.Target, " +
+                            "or dict of str to str/tvm.target.Target, but received " +
+                            "{}".format(type(target)))
         return tgts
 
     def _update_target_host(self, target, target_host):
@@ -213,7 +206,7 @@ class VMCompiler(object):
         if not target_host:
             target_host = "llvm" if tvm.runtime.enabled("llvm") else "stackvm"
         if isinstance(target_host, str):
-            target_host = tvm.target.Target(target_host)
+            target_host = tvm.target.create(target_host)
         return target_host
 
     def _tophub_context(self, target):
@@ -262,6 +255,12 @@ class VMExecutor(Executor):
 
         def _vm_wrapper(*args, **kwargs):
             args = self._convert_args(main, args, kwargs)
+            ret_type = self.mod["main"].checked_type.ret_type
+            if is_dynamic(ret_type) and "llvm" not in str(self.target) and "arm" not in str(
+                    self.target):
+                raise ValueError(
+                    "Virtual Machine only supports dynamic graphs on CPU, got output type",
+                    ret_type, "on target", self.target)
             return self.vm.run(*args)
 
         return _vm_wrapper

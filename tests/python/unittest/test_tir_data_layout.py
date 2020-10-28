@@ -20,7 +20,6 @@ import tvm
 from tvm import te
 from tvm.topi.util import get_const_tuple
 
-
 def test_layout():
     layout = tvm.tir.layout("NCHW16c")
     assert layout is not None
@@ -51,7 +50,6 @@ def test_layout():
     assert layout[4] == "c"
     assert layout[-1] == "c"
 
-
 def test_bilayout_convertible():
     # not convertible
     assert tvm.tir.bijective_layout("NCHW", "ABCD") is None
@@ -64,7 +62,6 @@ def test_bilayout_convertible():
     # convertible
     assert tvm.tir.bijective_layout("NCHW", "NCHW16c") is not None
 
-
 def test_bilayout_shape():
     bilayout = tvm.tir.bijective_layout("NCHW", "NCHW16c")
     assert isinstance(bilayout, tvm.tir.BijectiveLayout)
@@ -75,7 +72,6 @@ def test_bilayout_shape():
     src_shape = bilayout.backward_shape(dst_shape)
     assert get_const_tuple(src_shape) == (1, 32, 7, 7)
 
-
 def test_bilayout_index():
     bilayout = tvm.tir.bijective_layout("NCHW", "NCHW16c")
 
@@ -84,7 +80,6 @@ def test_bilayout_index():
 
     src_index = bilayout.backward_index([0, 1, 6, 6, 2])
     assert get_const_tuple(src_index) == (0, 18, 6, 6)
-
 
 if __name__ == "__main__":
     test_layout()

@@ -19,7 +19,6 @@
 import tvm
 from .. import cpp
 
-
 def schedule_extern(outs):
     """Schedule for an extern op followed by injective operations.
 

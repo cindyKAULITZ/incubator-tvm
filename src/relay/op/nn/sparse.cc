@@ -92,6 +92,71 @@ RELAY_REGISTER_OP("nn.sparse_dense")
     .set_support_level(1)
     .add_type_rel("SparseDense", SparseDenseRel);
 
+
+// relay.nn.sparse_conv2d
+TVM_REGISTER_NODE_TYPE(SparseConv2dAttrs);
+
+bool SparseConv2dRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
+                    const TypeReporter& reporter) {
+  CHECK_EQ(types.size(), 5);
+  const auto* data = types[0].as<TensorTypeNode>();
+  const auto* weight_data = types[1].as<TensorTypeNode>();
+  CHECK(weight_data->shape.size() == 1 || weight_data->shape.size() == 3);
+  const auto* weight_indptr = types[3].as<TensorTypeNode>();
+  if (data == nullptr) return false;
+
+  if (weight_data->shape.size() == 1) {
+    // CSR case.
+    Array<IndexExpr> oshape({data->shape[0], weight_indptr->shape[0] - 1});
+    reporter->Assign(types[4], TensorType(oshape, data->dtype));
+    return true;
+  }
+
+  if (weight_data->shape.size() == 3) {
+    // BSR case.
+    Array<IndexExpr> oshape(
+        {data->shape[0], (weight_indptr->shape[0] - 1) * weight_data->shape[1]});
+    reporter->Assign(types[4], TensorType(oshape, data->dtype));
+    return true;
+  }
+  LOG(FATAL) << "Unknown weight ndim for nn.sparse_conv2d, should be 1 (CSR) or 3 (BSR)";
+  return false;
+}
+
+// Positional relay function to create conv2d operator used by frontend FFI.
+Expr MakeSparseConv2d(Expr data, Expr weight_data, Expr weight_indices, Expr weight_indptr) {
+  auto attrs = make_object<SparseConv2dAttrs>();
+  static const Op& op = Op::Get("nn.sparse_conv2d");
+  return Call(op, {data, weight_data, weight_indices, weight_indptr}, Attrs(attrs), {});
+}
+
+TVM_REGISTER_GLOBAL("relay.op.nn._make.sparse_conv2d")
+    .set_body([](const TVMArgs& args, TVMRetValue* rv) {
+      runtime::detail::unpack_call<Expr, 4>(MakeSparseConv2d, args, rv);
+    });
+
+RELAY_REGISTER_OP("nn.sparse_conv2d")
+    .describe(R"code(Applies a sparse linear transformation: :math:`Y = XW^T` with X sparse.
+
+- **data**: `(x1, x2, ..., xn, input_dim)`
+- **weight**: `(units, input_dim)`
+- **out**: `(x1, x2, ..., xn, units)`.
+
+)code" TVM_ADD_FILELINE)
+    .set_attrs_type<SparseConv2dAttrs>()
+    .set_num_inputs(4)
+    .add_argument("data", "nD Tensor", "Input data.")
+    .add_argument("weight_data", "1D Tensor", "Weight data matrix.")
+    .add_argument("weight_indices", "1D Tensor", "Weight indices matrix.")
+    .add_argument("weight_indptr", "1D Tensor", "Weight indptr matrix.")
+    .set_support_level(1)
+    .add_type_rel("SparseConv2d", SparseConv2dRel);
+
+
+
+
+
+
 // relay.nn.sparse_transpose
 TVM_REGISTER_NODE_TYPE(SparseTransposeAttrs);
 

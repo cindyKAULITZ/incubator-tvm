@@ -187,6 +187,7 @@ def schedule_conv2d_winograd_weight_transform(outs):
     return s
 
 
+
 def schedule_conv2d_gemm_weight_transform(outs):
     """Schedule for weight transformation of gemm
 
@@ -292,7 +293,6 @@ def schedule_conv3d_ncdhw(outs):
         The computation schedule for the op.
     """
     return _default_schedule(outs, False)
-
 
 def schedule_conv3d_ndhwc(outs):
     """Schedule for conv3d_ndhwc
@@ -418,23 +418,6 @@ def schedule_group_conv2d_nchw(outs):
     ----------
     outs: Array of Tensor
           The computation graph description of group_conv2d_nchw
-          in the format of an array of tensors.
-
-    Returns
-    -------
-    sch: Schedule
-        The computation schedule for the op.
-    """
-    return _default_schedule(outs, False)
-
-
-def schedule_group_conv2d_nhwc(outs):
-    """Schedule for group_conv2d_nhwc
-
-    Parameters
-    ----------
-    outs: Array of Tensor
-          The computation graph description of group_conv2d_nhwc
           in the format of an array of tensors.
 
     Returns
@@ -685,6 +668,22 @@ def schedule_sparse_dense(outs):
     ----------
     outs: Array of Tensor
           The computation graph description of sparse_dense
+          in the format of an array of tensors.
+
+    Returns
+    -------
+    sch: Schedule
+        The computation schedule for the op.
+    """
+    return _default_schedule(outs, False)
+
+def schedule_sparse_conv2d(outs):
+    """Schedule for sparse_conv2d
+
+    Parameters
+    ----------
+    outs: Array of Tensor
+          The computation graph description of sparse_conv2d
           in the format of an array of tensors.
 
     Returns

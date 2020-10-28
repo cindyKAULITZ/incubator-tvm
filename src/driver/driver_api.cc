@@ -60,16 +60,16 @@ Target DefaultTargetHost(Target target) {
     return target;
   } else {
     if (LLVMEnabled()) {
-      return Target("llvm");
+      return target::llvm();
     } else {
-      return Target("stackvm");
+      return target::stackvm();
     }
   }
 }
 
 tir::Buffer BufferWithOffsetAlignment(Array<PrimExpr> shape, DataType dtype, std::string name,
                                       int data_alignment, int offset_factor, bool compact) {
-  auto data = tir::Var(name, PointerType(PrimType(dtype)));
+  auto data = tir::Var(name, DataType::Handle());
   bool has_any = false;
   if (!compact) {
     for (const auto& it : shape) {
@@ -209,7 +209,6 @@ std::pair<IRModule, IRModule> SplitDevHostFuncs(IRModule mod_mixed, const Target
       }),
       BindTarget(target_host),
       tir::transform::LowerTVMBuiltin(),
-      tir::transform::LowerCustomDatatypes(),
       tir::transform::LowerIntrin(),
       tir::transform::LowerDeviceStorageAccessInfo(),
       tir::transform::CombineContextCall(),
@@ -226,7 +225,6 @@ std::pair<IRModule, IRModule> SplitDevHostFuncs(IRModule mod_mixed, const Target
       BindTarget(target),
       tir::transform::LowerWarpMemory(),
       tir::transform::Simplify(),
-      tir::transform::LowerCustomDatatypes(),
       tir::transform::LowerIntrin(),
       tir::transform::LowerDeviceStorageAccessInfo(),
   };
@@ -296,10 +294,10 @@ runtime::Module build(const Map<Target, IRModule>& inputs, const Target& target_
 runtime::Module build(const Map<String, IRModule>& inputs, const Target& target_host) {
   Map<Target, IRModule> updated_input;
   for (const auto& it : inputs) {
-    auto target = Target(it.first);
+    auto target = Target::Create(it.first);
     Optional<String> device = target->GetAttr<String>("device");
     if (device.defined() && device.value() == "vta") {
-      target = Target("ext_dev");
+      target = Target::Create("ext_dev");
     }
     updated_input.Set(target, it.second);
   }

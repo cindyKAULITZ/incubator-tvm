@@ -30,7 +30,6 @@ from ..op import register_strategy
 register_strategy("dyn.topk", strategy.topk_strategy)
 register_pattern("dyn.topk", OpPattern.OPAQUE)
 
-
 @script
 def _topk_shape_func_input_data(data, k, axis):
     ndim = len(data.shape)
@@ -50,7 +49,6 @@ def _topk_shape_func_input_data(data, k, axis):
                 indices_out[i] = int64(k[0])
     return val_out, indices_out
 
-
 @_reg.register_shape_func("dyn.topk", True)
 def topk_shape_func(attrs, inputs, _):
     """
@@ -59,7 +57,8 @@ def topk_shape_func(attrs, inputs, _):
     axis = attrs.axis
     if axis < 0:
         axis += len(inputs[0].shape)
-    val_out, indices_out = _topk_shape_func_input_data(inputs[0], inputs[1], convert(axis))
+    val_out, indices_out = \
+        _topk_shape_func_input_data(inputs[0], inputs[1], convert(axis))
 
     ret_type = attrs.ret_type
     if ret_type == "both":

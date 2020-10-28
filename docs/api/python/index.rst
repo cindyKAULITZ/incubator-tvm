@@ -40,7 +40,6 @@ Python API
    relay/dataflow_pattern
    relay/testing
    autotvm
-   auto_scheduler
    rpc
    micro
    contrib

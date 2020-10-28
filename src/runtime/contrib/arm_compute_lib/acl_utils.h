@@ -93,12 +93,10 @@ std::shared_ptr<arm_compute::MemoryManagerOnDemand> MakeACLMemoryManager();
  *
  * \param pad The pad vector.
  * \param stride The stride vector.
- * \param ceil_mode Dimensions rounding.
  * \return arm_compute::PadStrideInfo
  */
 arm_compute::PadStrideInfo MakeACLPadStride(const std::vector<std::string>& pad,
-                                            const std::vector<std::string>& stride,
-                                            bool ceil_mode = false);
+                                            const std::vector<std::string>& stride);
 
 /*!
  * \brief Convert DLDataType to arm_compute::DataType.

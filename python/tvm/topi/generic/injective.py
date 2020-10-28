@@ -21,7 +21,6 @@ from __future__ import absolute_import as _abs
 import tvm
 from tvm import te
 
-
 def schedule_injective_from_existing(sch, out):
     """Schedule for injective op from existing schedule.
 
@@ -39,7 +38,6 @@ def schedule_injective_from_existing(sch, out):
     """
     sch[out].fuse(*sch[out].op.axis)
     return sch
-
 
 def schedule_injective(outs):
     """Schedule for injective op.
@@ -64,7 +62,6 @@ def schedule_injective(outs):
     te.schedule.AutoInlineInjective(s)
     schedule_injective_from_existing(s, x)
     return s
-
 
 schedule_elemwise = schedule_injective
 schedule_broadcast = schedule_injective

@@ -298,11 +298,12 @@ void CodeGenCHost::GenerateCrtSystemLib() {
          << "}\n";
 }
 
-runtime::Module BuildCHost(IRModule mod, Target target) {
+runtime::Module BuildCHost(IRModule mod, const std::string& target_str) {
   using tvm::runtime::Registry;
   bool output_ssa = false;
   bool emit_asserts = false;
   CodeGenCHost cg;
+  auto target = Target::Create(target_str);
   cg.Init(output_ssa, emit_asserts);
 
   for (auto kv : mod->functions) {
@@ -322,6 +323,8 @@ runtime::Module BuildCHost(IRModule mod, Target target) {
   return CSourceModuleCreate(code, "c");
 }
 
-TVM_REGISTER_GLOBAL("target.build.c").set_body_typed(BuildCHost);
+TVM_REGISTER_GLOBAL("target.build.c").set_body([](TVMArgs args, TVMRetValue* rv) {
+  *rv = BuildCHost(args[0], args[1]);
+});
 }  // namespace codegen
 }  // namespace tvm

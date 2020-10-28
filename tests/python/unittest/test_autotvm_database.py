@@ -23,7 +23,6 @@ from tvm.autotvm.record import encode, MeasureResult
 
 from test_autotvm_common import get_sample_records
 
-
 def test_save_load():
     logging.info("test basic db load/save ...")
     records = get_sample_records(3)
@@ -44,16 +43,14 @@ def test_save_load():
     assert load3 is None
     assert load1 != load2
 
-
 TRIAL_LIMIT = 2
-
 
 def test_db_hash():
     logging.info("test db hash check ...")
     inp1, res1 = get_sample_records(1)[0]
     inp2 = copy.deepcopy(inp1)
-    inp1.config.code_hash = "cafecafe"
-    inp2.config.code_hash = "dbffdbff"
+    inp1.config.code_hash = 'cafecafe'
+    inp2.config.code_hash = 'dbffdbff'
     res2l = list(tuple(res1))
 
     # set timestamp
@@ -69,7 +66,6 @@ def test_db_hash():
     assert load1 != load2
     assert load1.timestamp != -1
     assert load2.timestamp == -1
-
 
 def test_db_latest_all():
     logging.info("test db load w/ multiple results ...")
@@ -103,7 +99,6 @@ def test_db_latest_all():
     assert encode(inp1, load4[1]) == encode(inp1, res2)
     assert encode(inp1, load4[2]) == encode(inp1, res3)
 
-
 def test_db_filter():
     logging.info("test db filter ...")
     records = get_sample_records(5)
@@ -115,8 +110,7 @@ def test_db_filter():
     records = _db.filter(lambda inp, ress: any(r.costs[0] <= 2 for r in ress))
     assert len(records) == 2
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     test_save_load()
     test_db_hash()

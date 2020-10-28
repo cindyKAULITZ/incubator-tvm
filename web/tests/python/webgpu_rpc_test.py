@@ -40,14 +40,15 @@ def test_rpc():
         raise RuntimeError("Target %s is not enbaled" % target_host)
 
     n = 2048
-    A = te.placeholder((n,), name="A")
-    B = te.compute(A.shape, lambda *i: A(*i) + 1.0, name="B")
+    A = te.placeholder((n,), name='A')
+    B = te.compute(A.shape, lambda *i: A(*i) + 1.0, name='B')
     s = te.create_schedule(B.op)
 
     num_thread = 2
     xo, xi = s[B].split(B.op.axis[0], factor=num_thread)
     s[B].bind(xi, te.thread_axis("threadIdx.x"))
     s[B].bind(xo, te.thread_axis("blockIdx.x"))
+
 
     fadd = tvm.build(s, [A, B], target_device, target_host=target_host, name="addone")
     temp = util.tempdir()
@@ -56,12 +57,8 @@ def test_rpc():
     fadd.export_library(wasm_path, emcc.create_tvmjs_wasm)
 
     wasm_binary = open(wasm_path, "rb").read()
-    remote = rpc.connect(
-        proxy_host,
-        proxy_port,
-        key="wasm",
-        session_constructor_args=["rpc.WasmSession", wasm_binary],
-    )
+    remote = rpc.connect(proxy_host, proxy_port, key="wasm",
+                         session_constructor_args=["rpc.WasmSession", wasm_binary])
 
     def check(remote):
         # basic function checks.
@@ -78,6 +75,5 @@ def test_rpc():
         print("Test pass..")
 
     check(remote)
-
 
 test_rpc()

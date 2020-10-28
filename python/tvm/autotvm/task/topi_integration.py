@@ -27,22 +27,16 @@ we will serialize it to a hashable tuple.
 See tvm/topi/python/topi/arm_cpu/depthwise_conv2d.py for example usage.
 """
 import tvm.te._ffi_api
-from tvm.target import Target
+from tvm import target as _target
 from tvm.te import tensor
 
-from .task import (
-    args_to_workload,
-    serialize_args,
-    DispatchContext,
-    _register_task_compute,
-    _register_task_schedule,
-)
+from .task import args_to_workload, serialize_args, DispatchContext, \
+    _register_task_compute, _register_task_schedule
 
 
 # Task extractor for relay program
 class TaskExtractEnv:
     """Global environment for extracting tuning tasks from graph"""
-
     current = None
     registered = None
 
@@ -147,7 +141,6 @@ def register_topi_compute(task_name, func=None):
     --------
     See tvm/topi/python/topi/arm_cpu/depthwise_conv2d.py for example usage.
     """
-
     def _decorate(topi_compute):
         @_register_task_compute(task_name)
         def wrapper(*args, **kwargs):
@@ -157,7 +150,7 @@ def register_topi_compute(task_name, func=None):
             if task_env is not None and task_env.tracing:
                 task_env.add_task(task_name, args)
             workload = args_to_workload(args, task_name)
-            tgt = Target.current()
+            tgt = _target.Target.current()
             cfg = DispatchContext.current.query(tgt, workload)
             node = topi_compute(cfg, *args)
 
@@ -166,19 +159,15 @@ def register_topi_compute(task_name, func=None):
             attrs = {}
             for k, v in node.op.attrs.items():
                 attrs[k] = v
-            attrs["workload"] = workload
+            attrs['workload'] = workload
             if isinstance(op, tensor.ComputeOp):
-                op = tvm.te._ffi_api.ComputeOp(op.name, op.tag, attrs, op.axis, op.body)
+                op = tvm.te._ffi_api.ComputeOp(
+                    op.name, op.tag, attrs, op.axis, op.body)
             elif isinstance(op, tensor.ExternOp):
                 op = tvm.te._ffi_api.ExternOp(
-                    op.name,
-                    op.tag,
-                    attrs,
-                    op.inputs,
-                    op.input_placeholders,
-                    op.output_placeholders,
-                    op.body,
-                )
+                    op.name, op.tag, attrs,
+                    op.inputs, op.input_placeholders,
+                    op.output_placeholders, op.body)
             else:
                 raise RuntimeError("Unsupported op type: " + str(type(op)))
 
@@ -222,7 +211,6 @@ def register_topi_schedule(task_name, func=None):
     --------
     See tvm/topi/python/topi/arm_cpu/depthwise_conv2d.py for example usage.
     """
-
     def _decorate(topi_schedule):
         @_register_task_schedule(task_name)
         def wrapper(outs, *args, **kwargs):
@@ -230,12 +218,10 @@ def register_topi_schedule(task_name, func=None):
             workload = get_workload(outs)
             if workload is None:
                 raise RuntimeError("Cannot find workload in attribute of this schedule")
-            tgt = Target.current()
+            tgt = _target.Target.current()
             cfg = DispatchContext.current.query(tgt, workload)
             return topi_schedule(cfg, outs, *args, **kwargs)
-
         return wrapper
-
     if func:
         return _decorate(func)
     return _decorate
@@ -243,17 +229,15 @@ def register_topi_schedule(task_name, func=None):
 
 def get_workload(outs):
     """Retrieve the workload from outputs"""
-
     def traverse(tensors):
         """traverse all ops to find attached workload"""
         for t in tensors:
             op = t.op
-            if "workload" in op.attrs:
-                return args_to_workload(op.attrs["workload"])
+            if 'workload' in op.attrs:
+                return args_to_workload(op.attrs['workload'])
             wkl = traverse(op.input_tensors)
             if wkl:
                 return wkl
         return None
-
     outs = [outs] if isinstance(outs, tensor.Tensor) else outs
     return traverse(outs)

@@ -37,25 +37,6 @@
 namespace tvm {
 namespace tir {
 
-struct HoistIfThenElseConfigNode : public tvm::AttrsNode<HoistIfThenElseConfigNode> {
-  bool support_block_scope_hosting;
-
-  TVM_DECLARE_ATTRS(HoistIfThenElseConfigNode, "tir.transform.HoistIfThenElseConfig") {
-    TVM_ATTR_FIELD(support_block_scope_hosting)
-        .describe("Hoist if cond with block scope variables")
-        .set_default(false);
-  }
-};
-
-class HoistIfThenElseConfig : public Attrs {
- public:
-  TVM_DEFINE_NOTNULLABLE_OBJECT_REF_METHODS(HoistIfThenElseConfig, Attrs,
-                                            HoistIfThenElseConfigNode);
-};
-
-TVM_REGISTER_NODE_TYPE(HoistIfThenElseConfigNode);
-TVM_REGISTER_PASS_CONFIG_OPTION("tir.HoistIfThenElse", HoistIfThenElseConfig);
-
 using VarForMap = std::unordered_map<const VarNode*, const ForNode*>;
 using HoistForIfTuple = std::tuple<bool, const ForNode*, const IfThenElseNode*>;
 
@@ -112,33 +93,11 @@ using HoistForIfTuple = std::tuple<bool, const ForNode*, const IfThenElseNode*>;
  *            if (likely(j > 2))
  *                A[i+j+k] = B[i+j+k]
  *
- *
- * This pass do hoisting for Block scope variables also.
- * As below:
- * Attr(IterVar: threadIdx.x)
- * for (i = 0; i < 3; i++)
- *    for (j = 0; j < 4; j++)
- *        for (k = 0; k < 5; k++)
- *            if (likely(threadIdx.x < 3))
- *                A[3*i+2j+k] = B[7*i+3j+k]
- *
- * Will be transformed to as below:
- * Attr(IterVar: threadIdx.x)
- * if (likely(threadIdx.x < 3))
- *     for (i = 0; i < 3; i++)
- *         for (j = 0; j < 4; j++)
- *             for (k = 0; k < 5; k++)
- *                 A[3*i+2j+k] = B[7*i+3j+k]
- *
  */
 
 // Select potential candidate IRs that can be hoisted.
 class HoistCandidateSelector final : public StmtExprVisitor {
  public:
-  explicit HoistCandidateSelector(bool support_block_scope_hosting)
-      : support_block_scope_hosting_(support_block_scope_hosting) {
-    InitRecorder();
-  }
   HoistCandidateSelector() { InitRecorder(); }
 
   void VisitStmt_(const ForNode* op) final {
@@ -149,16 +108,16 @@ class HoistCandidateSelector final : public StmtExprVisitor {
     }
 
     // Check if it is first for loop, then start the recorder
-    StartOrAddRecord(GetRef<ObjectRef>(op));
+    StartOrAddRecord(op);
     StmtExprVisitor::VisitStmt_(op);
-    RemoveRecord(GetRef<ObjectRef>(op));
+    RemoveRecord(op);
   }
 
   void VisitStmt_(const SeqStmtNode* op) final {
     // If SeqStmt is encountered in the middle of recording
     //  then need to purge all, as it can not be hoisted
     if (IsRecordingOn()) {
-      ResetRecorderInternal();
+      ResetRecorder();
     }
     StmtExprVisitor::VisitStmt_(op);
   }
@@ -167,19 +126,10 @@ class HoistCandidateSelector final : public StmtExprVisitor {
     // Maintain list of all vars in AttrStmt
     // To stop hoisting if any of the block variables are used.
     //
-    // In case we want to use hoisting in between certain passes
-    // which have interdependencies of the postioning of if nodes with scope var
-    // it is better to disable this section
-    if (support_block_scope_hosting_) {
-      if (IsRecordingOn()) {
-        StartOrAddRecord(GetRef<ObjectRef>(op));
-        StmtExprVisitor::VisitStmt_(op);
-        RemoveRecord(GetRef<ObjectRef>(op));
-        return;
-      } else {
-        return StmtExprVisitor::VisitStmt_(op);
-      }
-    }
+    // NOTE: If in future
+    // hoisting is required for any specific case,
+    // then add exception to only those case
+    // rather than allowing for all.
     UpdateAttrVarList(op);
     StmtExprVisitor::VisitStmt_(op);
     RemoveAttrVarList(op);
@@ -197,23 +147,26 @@ class HoistCandidateSelector final : public StmtExprVisitor {
 
     if (CheckValidIf()) {
       // Check corresponding for loop
-      int match_for_loop_pos = -1;
+      bool match_found = false;
+      size_t match_for_loop_pos = 0;
       for (auto var : if_var_list_) {
-        for (int i = 0; i < static_cast<int>(ordered_list_.size()); ++i) {
-          if ((ordered_list_[i] == var_for_map_[var]) || (ordered_list_[i] == var)) {
+        for (size_t i = 0; i < ordered_for_list_.size() - 1; ++i) {
+          if (ordered_for_list_[i] == var_for_map_[var]) {
             if (match_for_loop_pos < i) {
               match_for_loop_pos = i;
             }
+            match_found = true;
+            break;
           }
         }
       }
       // If none of the for loop has the matching loop variable as if condition,
       // then the if node need to be hoisted on top of all, provided no parent loop exists.
-      int target_for_pos = GetNextLoopPos(match_for_loop_pos);
+      int target_for_pos = match_found ? match_for_loop_pos + 1 : 0;
 
-      // Check if valid position
-      if (target_for_pos >= 0) {
-        StopAndAddRecord(static_cast<const ForNode*>(ordered_list_[target_for_pos]), op);
+      // Check if target for loop is not the parent of current if node
+      if (!IsParentForLoop(target_for_pos)) {
+        StopAndAddRecord(ordered_for_list_[target_for_pos], op);
         if_var_list_.clear();
         return;
       }
@@ -233,10 +186,13 @@ class HoistCandidateSelector final : public StmtExprVisitor {
   HoistForIfTuple hoist_for_if_recorder;
 
   void ResetRecorder() {
-    ResetRecorderInternal();
-
-    // Reset Block scope vars also here
-    attr_var_list_.clear();
+    if (is_recorder_on_) {
+      CHECK_GT(ordered_for_list_.size(), 0);
+      is_recorder_on_ = false;
+    }
+    ordered_for_list_.clear();
+    var_for_map_.clear();
+    hoist_for_if_recorder = std::make_tuple(false, nullptr, nullptr);
   }
 
   bool RecordingComplete() { return std::get<0>(hoist_for_if_recorder); }
@@ -246,24 +202,25 @@ class HoistCandidateSelector final : public StmtExprVisitor {
   const IfThenElseNode* GetTargetIfNode() { return std::get<2>(hoist_for_if_recorder); }
 
  private:
-  void ResetRecorderInternal() {
-    if (is_recorder_on_) {
-      CHECK_GT(ordered_list_.size(), 0);
-      is_recorder_on_ = false;
-    }
-    ordered_list_.clear();
-    var_for_map_.clear();
-    hoist_for_if_recorder = std::make_tuple(false, nullptr, nullptr);
-  }
   bool CheckValidIf() {
     // If no if var list is present, then all the condition vars are possibly from AttrStmt, so stop
     // hoisting
     return ((!if_var_list_.empty()) && (!CheckAttrVar()));
   }
 
-  int GetNextLoopPos(int cur_pos) {
-    for (size_t i = cur_pos + 1; i < ordered_list_.size(); ++i) {
-      if (ordered_list_[i]->IsInstance<ForNode>()) {
+  bool IsParentForLoop(int loop_pos) {
+    // Check if the loop position is higher than the parent loop position
+    for (auto var : if_var_list_) {
+      if (GetParentLoopPos(var_for_map_[var]) >= loop_pos) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int GetParentLoopPos(const Object* node) {
+    for (size_t i = 0; i < ordered_for_list_.size(); ++i) {
+      if (ordered_for_list_[i] == node) {
         return i;
       }
     }
@@ -276,25 +233,18 @@ class HoistCandidateSelector final : public StmtExprVisitor {
 
   bool IsRecordingOn() { return is_recorder_on_; }
 
-  void StartOrAddRecord(const ObjectRef& op) {
+  void StartOrAddRecord(const ForNode* op) {
     is_recorder_on_ = true;
-    if (const auto* node = op.as<ForNode>()) {
-      if (!var_for_map_.count(node->loop_var.get()))
-        var_for_map_.insert({node->loop_var.get(), node});
-      ordered_list_.emplace_back(op.get());
-    } else if (const auto* node = op.as<AttrStmtNode>()) {
-      if (const auto* iv = node->node.as<IterVarNode>()) {
-        ordered_list_.emplace_back(iv->var.get());
-      } else if (const auto* iv = node->node.as<VarNode>()) {
-        ordered_list_.emplace_back(iv);
-      }
+    if (!var_for_map_.count(op->loop_var.get())) {
+      var_for_map_.insert({op->loop_var.get(), op});
     }
+    ordered_for_list_.emplace_back(op);
   }
 
-  void RemoveRecord(const ObjectRef& op) {
+  void RemoveRecord(const ForNode* op) {
     StopRecording();
-    if (const auto* node = op.as<ForNode>()) var_for_map_.erase(node->loop_var.get());
-    if (ordered_list_.size() > 0) ordered_list_.pop_back();
+    var_for_map_.erase(op->loop_var.get());
+    if (ordered_for_list_.size() > 0) ordered_for_list_.pop_back();
   }
 
   void StopAndAddRecord(const ForNode* for_node, const IfThenElseNode* if_node) {
@@ -327,22 +277,18 @@ class HoistCandidateSelector final : public StmtExprVisitor {
     return false;
   }
 
-  // Ordered List maintains all ForNodes & AttrStmtNodes encountered in sequence
-  std::vector<const Object*> ordered_list_;
+  std::vector<const ForNode*> ordered_for_list_;
   std::vector<const VarNode*> if_var_list_;
   std::unordered_set<const VarNode*> attr_var_list_;
   VarForMap var_for_map_;
 
   bool is_if_cond_{false};
   bool is_recorder_on_{false};
-  bool support_block_scope_hosting_{false};
 };
 
 class IfThenElseHoister : public StmtMutator {
  public:
   IfThenElseHoister() : hoist_selector_(HoistCandidateSelector()) {}
-  explicit IfThenElseHoister(bool support_block_scope_hosting)
-      : hoist_selector_(HoistCandidateSelector(support_block_scope_hosting)) {}
 
   Stmt VisitAndMutate(Stmt stmt) {
     hoist_selector_(stmt);
@@ -398,9 +344,6 @@ class IfThenElseHoister : public StmtMutator {
   const IfThenElseNode* target_if_;
 };
 
-Stmt HoistIfThenElse(Stmt stmt, bool support_block_scope_hosting) {
-  return IfThenElseHoister(support_block_scope_hosting).VisitAndMutate(stmt);
-}
 Stmt HoistIfThenElse(Stmt stmt) { return IfThenElseHoister().VisitAndMutate(stmt); }
 
 namespace transform {
@@ -408,29 +351,13 @@ namespace transform {
 Pass HoistIfThenElse() {
   auto pass_func = [=](PrimFunc f, IRModule m, PassContext ctx) {
     auto* n = f.CopyOnWrite();
-    auto cfg = ctx->GetConfig<HoistIfThenElseConfig>("tir.HoistIfThenElse");
-
-    if (!cfg.defined()) {
-      cfg = AttrsWithDefaultValues<HoistIfThenElseConfig>();
-    }
-    n->body = HoistIfThenElse(std::move(n->body), cfg.value()->support_block_scope_hosting);
+    n->body = HoistIfThenElse(std::move(n->body));
     return f;
   };
   return CreatePrimFuncPass(pass_func, 0, "tir.HoistIfThenElse", {});
 }
 
-Pass HoistIfThenElseBasic() {
-  auto pass_func = [=](PrimFunc f, IRModule m, PassContext ctx) {
-    auto* n = f.CopyOnWrite();
-    n->body = HoistIfThenElse(std::move(n->body));
-    return f;
-  };
-  return CreatePrimFuncPass(pass_func, 0, "tir.HoistIfThenElseBasic", {});
-}
-
 TVM_REGISTER_GLOBAL("tir.transform.HoistIfThenElse").set_body_typed(HoistIfThenElse);
-
-TVM_REGISTER_GLOBAL("tir.transform.HoistIfThenElseBasic").set_body_typed(HoistIfThenElseBasic);
 
 }  // namespace transform
 

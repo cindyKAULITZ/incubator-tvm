@@ -21,7 +21,6 @@ import tvm
 from tvm import te
 from .. import tag
 
-
 @tvm.te.tag_scope(tag=tag.BROADCAST)
 def scale_shift_nchw(Input, Scale, Shift):
     """Batch normalization operator in inference.
@@ -42,9 +41,7 @@ def scale_shift_nchw(Input, Scale, Shift):
     Output : tvm.te.Tensor
         Output tensor, layout is NCHW
     """
-    return te.compute(
-        Input.shape, lambda b, c, i, j: Input[b, c, i, j] * Scale[c] + Shift[c], name="ScaleShift"
-    )
+    return te.compute(Input.shape, lambda b, c, i, j: Input[b, c, i, j] * Scale[c] + Shift[c], name='ScaleShift')
 
 
 @tvm.te.tag_scope(tag=tag.BROADCAST)
@@ -67,6 +64,4 @@ def scale_shift_nhwc(Input, Scale, Shift):
     Output : tvm.te.Tensor
         Output tensor, layout is NHWC
     """
-    return te.compute(
-        Input.shape, lambda b, i, j, c: Input[b, i, j, c] * Scale[c] + Shift[c], name="ScaleShift"
-    )
+    return te.compute(Input.shape, lambda b, i, j, c: Input[b, i, j, c] * Scale[c] + Shift[c], name='ScaleShift')

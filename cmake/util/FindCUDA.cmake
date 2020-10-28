@@ -37,7 +37,7 @@
 #
 macro(find_cuda use_cuda)
   set(__use_cuda ${use_cuda})
-  if(${__use_cuda} MATCHES ${IS_TRUE_PATTERN})
+  if(__use_cuda STREQUAL "ON")
     find_package(CUDA QUIET)
   elseif(IS_DIRECTORY ${__use_cuda})
     set(CUDA_TOOLKIT_ROOT_DIR ${__use_cuda})
@@ -91,9 +91,7 @@ macro(find_cuda use_cuda)
       find_library(CUDA_CUBLAS_LIBRARY cublas
         ${CUDA_TOOLKIT_ROOT_DIR}/lib64
         ${CUDA_TOOLKIT_ROOT_DIR}/lib)
-      find_library(CUDA_CUBLASLT_LIBRARY
-        NAMES cublaslt cublasLt
-        PATHS
+      find_library(CUDA_CUBLASLT_LIBRARY cublaslt
         ${CUDA_TOOLKIT_ROOT_DIR}/lib64
         ${CUDA_TOOLKIT_ROOT_DIR}/lib)
     endif(MSVC)

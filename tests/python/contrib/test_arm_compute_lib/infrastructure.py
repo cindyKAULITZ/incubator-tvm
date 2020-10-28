@@ -16,8 +16,6 @@
 # under the License.
 from itertools import zip_longest, combinations
 import json
-import os
-import warnings
 
 import numpy as np
 
@@ -27,53 +25,15 @@ from tvm import rpc
 from tvm.contrib import graph_runtime
 from tvm.relay.op.contrib import arm_compute_lib
 from tvm.contrib import util
-from tvm.autotvm.measure import request_remote
 
 
 class Device:
-    """
-    Configuration for Arm Compute Library tests.
-
-    Check tests/python/contrib/arm_compute_lib/ for the presence of an test_config.json file.
-    This file can be used to override the default configuration here which will attempt to run the Arm
-    Compute Library runtime tests locally if the runtime is available. Changing the configuration
-    will allow these runtime tests to be offloaded to a remote Arm device via a tracker for example.
-
-    Notes
-    -----
-        The test configuration will be loaded once when the the class is created. If the configuration
-        changes between tests, any changes will not be picked up.
-
-    Parameters
-    ----------
-    device : RPCSession
-        Allows tests to connect to and use remote device.
-
-    Attributes
-    ----------
-    connection_type : str
-        Details the type of RPC connection to use. Options:
-        local - Use the local device,
-        tracker - Connect to a tracker to request a remote device,
-        remote - Connect to a remote device directly.
-    host : str
-        Specify IP address or hostname of remote target.
-    port : int
-        Specify port number of remote target.
-    target : str
-        The compilation target.
-    device_key : str
-        The device key of the remote target. Use when connecting to a remote device via a tracker.
-    cross_compile : str
-        Specify path to cross compiler to use when connecting a remote device from a non-arm platform.
-    """
-
-    connection_type = "local"
-    host = "localhost"
-    port = 9090
+    """Adjust the following settings to connect to and use a remote device for tests."""
+    use_remote = False
     target = "llvm -mtriple=aarch64-linux-gnu -mattr=+neon"
-    device_key = ""
-    cross_compile = ""
+    # Enable cross compilation when connecting a remote device from a non-arm platform.
+    cross_compile = None
+    # cross_compile = "aarch64-linux-gnu-g++"
 
     def __init__(self):
         """Keep remote device for lifetime of object."""
@@ -82,47 +42,34 @@ class Device:
     @classmethod
     def _get_remote(cls):
         """Get a remote (or local) device to use for testing."""
-        if cls.connection_type == "tracker":
-            device = request_remote(cls.device_key, cls.host, cls.port, timeout=1000)
-        elif cls.connection_type == "remote":
-            device = rpc.connect(cls.host, cls.port)
-        elif cls.connection_type == "local":
-            device = rpc.LocalSession()
+        if cls.use_remote:
+            # Here you may adjust settings to run the ACL unit tests via a remote
+            # device using the RPC mechanism. Use this in the case you want to compile
+            # an ACL module on a different machine to what you run the module on i.e.
+            # x86 -> AArch64.
+            #
+            # Use the following to connect directly to a remote device:
+            # device = rpc.connect(
+            #     hostname="0.0.0.0",
+            #     port=9090)
+            #
+            # Or connect via a tracker:
+            # device = tvm.autotvm.measure.request_remote(
+            #     host="0.0.0.0",
+            #     port=9090,
+            #     device_key="device_key",
+            #     timeout=1000)
+            #
+            # return device
+            raise NotImplementedError(
+                "Please adjust these settings to connect to your remote device.")
         else:
-            raise ValueError(
-                "connection_type in test_config.json should be one of: " "local, tracker, remote."
-            )
-
-        return device
-
-    @classmethod
-    def load(cls, file_name):
-        """Load test config
-
-        Load the test configuration by looking for file_name relative
-        to the test_arm_compute_lib directory.
-        """
-        location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-        config_file = os.path.join(location, file_name)
-        if not os.path.exists(config_file):
-            warnings.warn(
-                "Config file doesn't exist, resuming Arm Compute Library tests with default config."
-            )
-            return
-        with open(config_file, mode="r") as config:
-            test_config = json.load(config)
-
-        cls.connection_type = test_config["connection_type"]
-        cls.host = test_config["host"]
-        cls.port = test_config["port"]
-        cls.target = test_config["target"]
-        cls.device_key = test_config.get("device_key") or ""
-        cls.cross_compile = test_config.get("cross_compile") or ""
+            device = rpc.LocalSession()
+            return device
 
 
 def get_cpu_op_count(mod):
     """Traverse graph counting ops offloaded to TVM."""
-
     class Counter(tvm.relay.ExprVisitor):
         def __init__(self):
             super().__init__()
@@ -147,11 +94,7 @@ def skip_runtime_test():
         return True
 
     # Remote device is in use or ACL runtime not present
-    # Note: Ensure that the device config has been loaded before this check
-    if (
-        not Device.connection_type != "local"
-        and not arm_compute_lib.is_arm_compute_runtime_enabled()
-    ):
+    if not Device.use_remote and not arm_compute_lib.is_arm_compute_runtime_enabled():
         print("Skip because runtime isn't present or a remote device isn't being used.")
         return True
 
@@ -171,50 +114,26 @@ def build_module(mod, target, params=None, enable_acl=True, tvm_ops=0, acl_parti
         if enable_acl:
             mod = arm_compute_lib.partition_for_arm_compute_lib(mod, params)
             tvm_op_count = get_cpu_op_count(mod)
-            assert tvm_op_count == tvm_ops, "Got {} TVM operators, expected {}".format(
-                tvm_op_count, tvm_ops
-            )
+            assert tvm_op_count == tvm_ops, \
+                "Got {} TVM operators, expected {}".format(tvm_op_count, tvm_ops)
             partition_count = 0
             for global_var in mod.get_global_vars():
                 if "arm_compute_lib" in global_var.name_hint:
                     partition_count += 1
 
-            assert (
-                acl_partitions == partition_count
-            ), "Got {} Arm Compute Library partitions, expected {}".format(
-                partition_count, acl_partitions
-            )
+            assert acl_partitions == partition_count, \
+                "Got {} Arm Compute Library partitions, expected {}".format(
+                    partition_count, acl_partitions)
         relay.backend.compile_engine.get().clear()
         return relay.build(mod, target=target, params=params)
 
 
-def build_and_run(
-    mod,
-    inputs,
-    outputs,
-    params,
-    device,
-    enable_acl=True,
-    no_runs=1,
-    tvm_ops=0,
-    acl_partitions=1,
-    config=None,
-):
+def build_and_run(mod, inputs, outputs, params, device, enable_acl=True, no_runs=1,
+                  tvm_ops=0, acl_partitions=1):
     """Build and run the relay module."""
-    if config is None:
-        config = {}
-
-    try:
-        lib = build_module(mod, device.target, params, enable_acl, tvm_ops, acl_partitions)
-    except Exception as e:
-        err_msg = "The module could not be built.\n"
-        if config:
-            err_msg += f"The test failed with the following parameters: {config}\n"
-        err_msg += str(e)
-        raise Exception(err_msg)
-
+    lib = build_module(mod, device.target, params, enable_acl, tvm_ops, acl_partitions)
     lib = update_lib(lib, device.device, device.cross_compile)
-    gen_module = graph_runtime.GraphModule(lib["default"](device.device.cpu(0)))
+    gen_module = graph_runtime.GraphModule(lib['default'](device.device.cpu(0)))
     gen_module.set_input(**inputs)
     out = []
     for _ in range(no_runs):
@@ -237,55 +156,47 @@ def update_lib(lib, device, cross_compile):
     return lib
 
 
-def verify(answers, atol, rtol, verify_saturation=False, config=None):
+def verify(answers, atol, rtol, verify_saturation=False, params=None):
     """Compare the array of answers. Each entry is a list of outputs."""
-    if config is None:
-        config = {}
+    if params is None:
+        params = {}
 
     if len(answers) < 2:
-        raise RuntimeError(f"No results to compare: expected at least two, found {len(answers)}")
+        raise RuntimeError(
+            f"No results to compare: expected at least two, found {len(answers)}")
     for answer in zip_longest(*answers):
         for outs in combinations(answer, 2):
+            if verify_saturation:
+                assert np.count_nonzero(outs[0].asnumpy() == 255) < 0.25 * outs[0].asnumpy().size, \
+                    "Output is saturated: {}".format(outs[0])
+                assert np.count_nonzero(outs[0].asnumpy() == 0) < 0.25 * outs[0].asnumpy().size, \
+                    "Output is saturated: {}".format(outs[0])
             try:
-                if verify_saturation:
-                    assert (
-                        np.count_nonzero(outs[0].asnumpy() == 255) < 0.25 * outs[0].asnumpy().size
-                    ), "Output is saturated: {}".format(outs[0])
-                    assert (
-                        np.count_nonzero(outs[0].asnumpy() == 0) < 0.25 * outs[0].asnumpy().size
-                    ), "Output is saturated: {}".format(outs[0])
                 tvm.testing.assert_allclose(
-                    outs[0].asnumpy(), outs[1].asnumpy(), rtol=rtol, atol=atol
-                )
+                   outs[0].asnumpy(), outs[1].asnumpy(), rtol=rtol, atol=atol)
             except AssertionError as e:
                 err_msg = "Results not within the acceptable tolerance.\n"
-                if config:
-                    err_msg += f"The test failed with the following parameters: {config}\n"
+                if params:
+                    err_msg += f"The test failed with the following parameters: {params}\n"
                 err_msg += str(e)
                 raise AssertionError(err_msg)
 
 
 def extract_acl_modules(module):
     """Get the ACL module(s) from llvm module."""
-    return list(
-        filter(lambda mod: mod.type_key == "arm_compute_lib", module.get_lib().imported_modules)
-    )
+    return list(filter(lambda mod: mod.type_key == "arm_compute_lib",
+                       module.get_lib().imported_modules))
 
 
-def verify_codegen(
-    module,
-    known_good_codegen,
-    num_acl_modules,
-    target="llvm -mtriple=aarch64-linux-gnu -mattr=+neon",
-):
+def verify_codegen(module, known_good_codegen, num_acl_modules,
+                   target="llvm -mtriple=aarch64-linux-gnu -mattr=+neon"):
     """Check acl codegen against a known good output."""
     module = build_module(module, target)
     acl_modules = extract_acl_modules(module)
 
-    assert len(acl_modules) == num_acl_modules, (
-        f"The number of Arm Compute Library modules produced ({len(acl_modules)}) does not "
+    assert len(acl_modules) == num_acl_modules, \
+        f"The number of Arm Compute Library modules produced ({len(acl_modules)}) does not " \
         f"match the expected value ({num_acl_modules})."
-    )
 
     for mod in acl_modules:
         source = mod.get_source("json")
@@ -297,11 +208,10 @@ def verify_codegen(
         codegen_str = json.dumps(codegen, sort_keys=True, indent=2)
         known_good_codegen_str = json.dumps(known_good_codegen, sort_keys=True, indent=2)
 
-        assert codegen_str == known_good_codegen_str, (
-            f"The JSON produced by codegen does not match the expected result. \n"
-            f"Actual={codegen_str} \n"
+        assert codegen_str == known_good_codegen_str, \
+            f"The JSON produced by codegen does not match the expected result. \n" \
+            f"Actual={codegen_str} \n" \
             f"Expected={known_good_codegen_str}"
-        )
 
 
 def generate_trials(space, r_factor=3):

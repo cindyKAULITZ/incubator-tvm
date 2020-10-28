@@ -31,7 +31,7 @@
 //
 // - Send PR to upgrade build script in the repo
 // - Build the new docker image
-// - Tag the docker image with a new version and push to a binary cache.
+// - Tag the docker image with a new version and push to tvmai
 // - Update the version in the Jenkinsfile, send a PR
 // - Fix any issues wrt to the new image version in the PR
 // - Merge the PR and now we are in new version
@@ -43,13 +43,11 @@
 //
 //
 
-// NOTE: these lines are scanned by docker/dev_common.sh. Please update the regex as needed. -->
-ci_lint = "tlcpack/ci-lint:v0.62"
-ci_gpu = "tlcpack/ci-gpu:v0.64"
-ci_cpu = "tlcpack/ci-cpu:v0.65"
-ci_wasm = "tlcpack/ci-wasm:v0.60"
-ci_i386 = "tlcpack/ci-i386:v0.52"
-// <--- End of regex-scanned config.
+ci_lint = "tvmai/ci-lint:v0.61"
+ci_gpu = "tvmai/ci-gpu:v0.64"
+ci_cpu = "tvmai/ci-cpu:v0.65"
+ci_wasm = "tvmai/ci-wasm:v0.60"
+ci_i386 = "tvmai/ci-i386:v0.52"
 
 // tvm libraries
 tvm_runtime = "build/libtvm_runtime.so, build/config.cmake"
@@ -92,19 +90,6 @@ def init_git_win() {
     }
 }
 
-def cancel_previous_build() {
-    // cancel previous build if it is not on master.
-    if (env.BRANCH_NAME != "master") {
-        def buildNumber = env.BUILD_NUMBER as int
-        // Milestone API allows us to cancel previous build
-        // with the same milestone number
-        if (buildNumber > 1) milestone(buildNumber - 1)
-        milestone(buildNumber)
-    }
-}
-
-cancel_previous_build()
-
 stage("Sanity Check") {
   timeout(time: max_time, unit: 'MINUTES') {
     node('CPU') {
@@ -125,11 +110,7 @@ def make(docker_type, path, make_flag) {
       sh "${docker_run} ${docker_type} ./tests/scripts/task_build.sh ${path} ${make_flag}"
       // always run cpp test when build
       sh "${docker_run} ${docker_type} ./tests/scripts/task_cpp_unittest.sh"
-    } catch (hudson.AbortException ae) {
-      // script exited due to user abort, directly throw instead of retry
-      if (ae.getMessage().contains('script returned exit code 143')) {
-        throw ae
-      }
+    } catch (exc) {
       echo 'Incremental compilation failed. Fall back to build from scratch'
       sh "${docker_run} ${docker_type} ./tests/scripts/task_clean.sh ${path}"
       sh "${docker_run} ${docker_type} ./tests/scripts/task_build.sh ${path} ${make_flag}"
@@ -221,8 +202,8 @@ stage('Unit Test') {
         unpack_lib('gpu', tvm_multilib)
         timeout(time: max_time, unit: 'MINUTES') {
           sh "${docker_run} ${ci_gpu} ./tests/scripts/task_sphinx_precheck.sh"
-          sh "${docker_run} ${ci_gpu} ./tests/scripts/task_python_unittest_gpuonly.sh"
-          sh "${docker_run} ${ci_gpu} ./tests/scripts/task_python_integration_gpuonly.sh"
+          sh "${docker_run} ${ci_gpu} ./tests/scripts/task_python_unittest.sh"
+          sh "${docker_run} ${ci_gpu} ./tests/scripts/task_python_integration.sh"
         }
       }
     }
@@ -305,13 +286,13 @@ stage('Integration Test') {
 stage('Build packages') {
   parallel 'conda CPU': {
     node('CPU') {
-      sh "${docker_run} tlcpack/conda-cpu ./conda/build_cpu.sh
+      sh "${docker_run} tvmai/conda-cpu ./conda/build_cpu.sh
     }
   },
   'conda cuda': {
     node('CPU') {
-      sh "${docker_run} tlcpack/conda-cuda90 ./conda/build_cuda.sh
-      sh "${docker_run} tlcpack/conda-cuda100 ./conda/build_cuda.sh
+      sh "${docker_run} tvmai/conda-cuda90 ./conda/build_cuda.sh
+      sh "${docker_run} tvmai/conda-cuda100 ./conda/build_cuda.sh
     }
   }
   // Here we could upload the packages to anaconda for releases

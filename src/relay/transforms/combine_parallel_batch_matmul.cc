@@ -116,8 +116,8 @@ class ParallelBatchMatmulCombiner : public ParallelOpCombiner {
       auto feature_dim = batch_matmul->args[1]->type_as<TensorTypeNode>()->shape[1];
       auto fpp = tir::as_const_int(feature_dim);
       int64_t features = *fpp;
-      Array<Integer> begin;
-      Array<Integer> end;
+      std::vector<int64_t> begin;
+      std::vector<int64_t> end;
       for (size_t i = 0; i < 2; i++) {
         begin.push_back(0);
         end.push_back(-1);
@@ -125,8 +125,12 @@ class ParallelBatchMatmulCombiner : public ParallelOpCombiner {
       begin.push_back(index);
       index += features;
       end.push_back(features);
-      Array<Integer> strides(begin.size(), 1);
-      auto slice = MakeStridedSlice(data, begin, end, strides, "size");
+      std::vector<int64_t> strides(begin.size(), 1);
+      std::vector<int64_t> ndarray_shape = {static_cast<int64_t>(begin.size())};
+      Constant begin_const = MakeConstantTensor(DataType::Int(64), ndarray_shape, begin);
+      Constant end_const = MakeConstantTensor(DataType::Int(64), ndarray_shape, end);
+      Constant strides_const = MakeConstantTensor(DataType::Int(64), ndarray_shape, strides);
+      auto slice = MakeStridedSlice(data, begin_const, end_const, strides_const, "size");
       subst_map->insert({GetRef<Expr>(branch[depth]), slice});
     }
   }

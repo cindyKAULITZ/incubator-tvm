@@ -237,7 +237,7 @@ llvm::Value* CodeGenHexagon::CreateCallExtern(Type ret_type, String global_symbo
 
 llvm::GlobalVariable* CodeGenHexagon::InitContextPtr(llvm::Type* p_type, std::string name) {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
-      *module_, p_type, false, llvm::GlobalValue::LinkOnceAnyLinkage, nullptr, name);
+      *module_, p_type, false, llvm::GlobalValue::LinkOnceAnyLinkage, 0, name);
 #if TVM_LLVM_VERSION >= 100
   gv->setAlignment(llvm::Align(data_layout_->getTypeAllocSize(p_type)));
 #else
@@ -636,7 +636,7 @@ bool UsesExportABI(const PrimFunc& f) {
   return false;
 }
 
-DMLC_ATTRIBUTE_UNUSED std::ostream& operator<<(std::ostream& os, const llvm::Module& m) {
+__attribute__((unused)) std::ostream& operator<<(std::ostream& os, const llvm::Module& m) {
   std::string ms;
   llvm::raw_string_ostream sos(ms);
   sos << m;
@@ -658,7 +658,11 @@ void ProcessLLVMOptions(const std::vector<std::string>& llvm_vec) {
 
 }  // namespace
 
-runtime::Module BuildHexagon(IRModule mod, Target target) {
+runtime::Module BuildHexagon(IRModule mod, std::string target_str) {
+  if (target_str.empty()) {
+    LOG(FATAL) << "Unknown or invalid target.";
+  }
+
   // Make sure all targets are registered. InitializeLLVM can be called
   // multiple times, after the first call all subsequent calls are no-ops.
   InitializeLLVM();
@@ -671,12 +675,21 @@ runtime::Module BuildHexagon(IRModule mod, Target target) {
     }
     return vec;
   };
-  std::string llvm_options_str;
-  if (const Optional<String> llvm_options = target->GetAttr<String>("llvm-options")) {
-    llvm_options_str = "llvm," + llvm_options.value();
-  } else {
-    llvm_options_str = "llvm";
+  auto starts_with = [](const std::string& s, const std::string& p) {
+    return !s.compare(0, p.size(), p);
+  };
+
+  std::vector<std::string> flags = split(target_str);
+  std::string llvm_target_str, llvm_options_str = "llvm";
+
+  for (const auto& s : flags) {
+    if (starts_with(s, "-mattr=") || starts_with(s, "-mtriple=") || starts_with(s, "-mcpu=")) {
+      llvm_target_str += " " + s;
+    } else if (starts_with(s, "-llvm-options=")) {
+      llvm_options_str += "," + s.substr(14 /*length of -llvm-options=*/);
+    }
   }
+
   // Postprocess the LLVM options string: replace '@' with '=', and ',' with ' '.
   for (int i = 0, e = llvm_options_str.size(); i != e; ++i) {
     switch (llvm_options_str[i]) {
@@ -703,7 +716,7 @@ runtime::Module BuildHexagon(IRModule mod, Target target) {
   static bool CallOnce = (ProcessLLVMOptions(llvm_options_vec), true);
   (void)CallOnce;
 
-  std::unique_ptr<llvm::TargetMachine> tm = GetLLVMTargetMachine(target);
+  std::unique_ptr<llvm::TargetMachine> tm = GetLLVMTargetMachine(target_str);
   std::unique_ptr<CodeGenHexagon> cg(new CodeGenHexagon());
   std::unique_ptr<llvm::LLVMContext> ctx(new llvm::LLVMContext());
   cg->Init("TVMHexagonModule", tm.get(), ctx.get(), false, false, false);
@@ -789,7 +802,9 @@ runtime::Module BuildHexagon(IRModule mod, Target target) {
                              export_abi);
 }
 
-TVM_REGISTER_GLOBAL("target.build.hexagon").set_body_typed(BuildHexagon);
+TVM_REGISTER_GLOBAL("target.build.hexagon").set_body([](TVMArgs args, TVMRetValue* rv) {
+  *rv = BuildHexagon(args[0], args[1]);
+});
 
 }  // namespace codegen
 }  // namespace tvm

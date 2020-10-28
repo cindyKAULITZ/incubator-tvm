@@ -14,8 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=unused-argument, not-context-manager
+#pylint: disable=unused-argument, not-context-manager
 """Optimizations involves changing of paramters"""
 
 from . import bsr_dense
+from . import sparse_conv2d
 from . import simplify_fc_transpose

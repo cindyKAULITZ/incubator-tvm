@@ -18,7 +18,7 @@
  */
 
 /*!
- * \file relay/backend/graph_plan_memory.cc
+ * \file relay/backend/graph_mem_alloca.cc
  * \brief Memory index assignment pass for executing
  *   the program in the graph runtime.
  */
@@ -68,7 +68,7 @@ class StorageAllocaBaseVisitor : public ExprVisitor {
   }
 
   void VisitExpr_(const FunctionNode* op) final {
-    // do not recurse into sub function.
+    // do not recursive into sub function.
   }
 
   void VisitExpr_(const GlobalVarNode* op) final {
@@ -353,7 +353,7 @@ class StorageAllocator : public StorageAllocaBaseVisitor {
   }
   /*!
    * \brief Check if we can release token.
-   * \param tok The token to be released.
+   * \tok The token to be released.
    */
   void CheckForRelease(StorageToken* tok) {
     CHECK_GE(tok->storage_id, 0);

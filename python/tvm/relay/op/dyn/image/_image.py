@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=invalid-name, unused-argument
+#pylint: disable=invalid-name, unused-argument
 """Backend compiler related feature registration"""
 from __future__ import absolute_import
 
@@ -33,9 +33,8 @@ def compute_resize(attrs, inputs, out_type):
     coord_trans = attrs.coordinate_transformation_mode
     out_dtype = attrs.out_dtype
     return [
-        tvm.topi.image.resize(
-            inputs[0], inputs[1], layout, method, coord_trans, out_dtype, out_type.shape
-        )
+        tvm.topi.image.resize(inputs[0], inputs[1], layout, method, coord_trans, out_dtype,
+                              out_type.shape)
     ]
 
 
@@ -43,12 +42,22 @@ reg.register_injective_schedule("dyn.image.resize")
 
 
 @script
-def _resize_shape_func(dshape, size, ndim, height_axis, width_axis):
-    out = output_tensor((ndim,), "int64")
+def _NCHW_resize_shape_func(dshape, size, ndim):
+    out = output_tensor((ndim, ), "int64")
     for i in const_range(ndim):
         out[i] = int64(dshape[i])
-    out[height_axis] = int64(size[0])
-    out[width_axis] = int64(size[1])
+    out[2] = int64(size[0])
+    out[3] = int64(size[1])
+    return out
+
+
+@script
+def _NHWC_resize_shape_func(dshape, size, ndim):
+    out = output_tensor((ndim, ), "int64")
+    for i in const_range(ndim):
+        out[i] = int64(dshape[i])
+    out[1] = int64(size[0])
+    out[2] = int64(size[1])
     return out
 
 
@@ -58,26 +67,10 @@ def resize_shape_func(attrs, inputs, _):
     Shape function for dyn.image.resize op.
     """
     layout = attrs.layout
-    if nchw_pack_layout(layout) or nchw_xc_layout(layout):
-        out = [
-            _resize_shape_func(
-                inputs[0].shape, inputs[1], convert(len(inputs[0].shape)), convert(2), convert(3)
-            )
-        ]
+    if layout == 'NHWC':
+        out = [_NHWC_resize_shape_func(inputs[0].shape, inputs[1], convert(len(inputs[0].shape)))]
+    elif (layout == 'NCHW') or nchw_pack_layout(layout) or nchw_xc_layout(layout):
+        out = [_NCHW_resize_shape_func(inputs[0].shape, inputs[1], convert(len(inputs[0].shape)))]
     else:
-        height_axis = width_axis = 1
-        for i, letter in enumerate(layout):
-            if letter == "H":
-                height_axis = i
-            if letter == "W":
-                width_axis = i
-        out = [
-            _resize_shape_func(
-                inputs[0].shape,
-                inputs[1],
-                convert(len(inputs[0].shape)),
-                convert(height_axis),
-                convert(width_axis),
-            )
-        ]
+        raise ValueError("Resize Unsupported Layout", layout)
     return out

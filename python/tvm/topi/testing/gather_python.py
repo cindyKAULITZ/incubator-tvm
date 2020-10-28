@@ -18,9 +18,8 @@
 """gather in python"""
 import numpy as np
 
-
 def gather_python(data, axis, indices):
-    """Python version of Gather operator
+    """ Python version of Gather operator
 
     Parameters
     ----------

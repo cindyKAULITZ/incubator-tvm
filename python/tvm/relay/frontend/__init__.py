@@ -33,5 +33,3 @@ from .caffe2 import from_caffe2
 from .tensorflow import from_tensorflow
 from .darknet import from_darknet
 from .pytorch import from_pytorch
-from .caffe import from_caffe
-from .change_datatype import ChangeDatatype

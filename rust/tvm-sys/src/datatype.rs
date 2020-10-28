@@ -31,8 +31,7 @@ const DL_UINT_CODE: u8 = 1;
 const DL_FLOAT_CODE: u8 = 2;
 const DL_HANDLE: u8 = 3;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DataType {
     code: u8,
     bits: u8,

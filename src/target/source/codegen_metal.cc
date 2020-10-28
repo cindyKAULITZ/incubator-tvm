@@ -282,7 +282,7 @@ void CodeGenMetal::VisitExpr_(const CallNode* op, std::ostream& os) {  // NOLINT
   }
 }
 
-runtime::Module BuildMetal(IRModule mod, Target target) {
+runtime::Module BuildMetal(IRModule mod) {
   using tvm::runtime::Registry;
   bool output_ssa = false;
   CodeGenMetal cg;
@@ -308,6 +308,8 @@ runtime::Module BuildMetal(IRModule mod, Target target) {
   return MetalModuleCreate(code, fmt, ExtractFuncInfo(mod), source);
 }
 
-TVM_REGISTER_GLOBAL("target.build.metal").set_body_typed(BuildMetal);
+TVM_REGISTER_GLOBAL("target.build.metal").set_body([](TVMArgs args, TVMRetValue* rv) {
+  *rv = BuildMetal(args[0]);
+});
 }  // namespace codegen
 }  // namespace tvm

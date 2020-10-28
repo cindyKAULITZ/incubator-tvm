@@ -20,7 +20,6 @@ QNN pass transformation infrastructure.
 """
 from tvm import relay
 
-
 def CanonicalizeOps():
     """Converts/Lowers an expression containing QNN ops to an expression containing only core
     (non-Dialect) Relay ops. Each QNN op is lowered to a sequence of existing Relay ops. This is a

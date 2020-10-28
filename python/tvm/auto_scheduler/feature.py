@@ -45,7 +45,6 @@ DEFAULT_FEATURE_VEC_LEN = 164
 SIZE_OF_INT32 = 4
 SIZE_OF_FLOAT32 = 4
 
-
 def unpack_feature(byte_arr: bytearray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Unpack the flatten feature (in byte array format) from c++
 
@@ -79,7 +78,7 @@ def unpack_feature(byte_arr: bytearray) -> Tuple[np.ndarray, np.ndarray, np.ndar
       float features_i[size[i]];  // The features for record i
       ... // until i == n - 1
 
-      float throughputs[sizes[n]];  // The normalized throughputs for n records
+      float throuputs[sizes[n]];  // The normalized throughputs for n records
       int   task_ids[size[n+1];   // The task ids for n records
 
     }
@@ -93,8 +92,8 @@ def unpack_feature(byte_arr: bytearray) -> Tuple[np.ndarray, np.ndarray, np.ndar
     n = struct.unpack_from("1i", byte_arr, offset=offset)[0]
     offset += SIZE_OF_INT32
 
-    sizes = struct.unpack_from("%di" % (n + 2), byte_arr, offset=offset)
-    offset += SIZE_OF_INT32 * (n + 2)
+    sizes = struct.unpack_from("%di" % (n+2), byte_arr, offset=offset)
+    offset += SIZE_OF_INT32 * (n+2)
 
     # unpack features
     features = []
@@ -118,12 +117,8 @@ def unpack_feature(byte_arr: bytearray) -> Tuple[np.ndarray, np.ndarray, np.ndar
 
             n_stmts = int(n_stmts[0] + 0.5)
             tmp_vec_len = (size - 1) // n_stmts
-            assert (
-                tmp_vec_len == vec_len
-            ), "The lenght of feature vector is wrong. " "Expected %d but got %d." % (
-                vec_len,
-                tmp_vec_len,
-            )
+            assert tmp_vec_len == vec_len, "The lenght of feature vector is wrong. " \
+                                           "Expected %d but got %d." % (vec_len, tmp_vec_len)
             assert tmp_vec_len * n_stmts == size - 1
             for _ in range(n_stmts):
                 x = struct.unpack_from("%df" % vec_len, byte_arr, offset=offset)
@@ -146,9 +141,10 @@ def unpack_feature(byte_arr: bytearray) -> Tuple[np.ndarray, np.ndarray, np.ndar
     return np.array(features, dtype=object), np.array(normalized_throughputs), np.array(task_ids)
 
 
-def get_per_store_features_from_file(
-    filename: str, max_lines: int, max_n_bufs: Optional[int] = None
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def get_per_store_features_from_file(filename: str,
+                                     max_lines: int,
+                                     max_n_bufs: Optional[int] = None) \
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Get per-store features from a log file
 
     Parameters
@@ -170,17 +166,15 @@ def get_per_store_features_from_file(
         Task ids
     """
     byte_arr = _ffi_api.GetPerStoreFeaturesFromFile(
-        filename, max_lines, max_n_bufs or DEFAULT_MAX_N_BUFS
-    )
+        filename, max_lines, max_n_bufs or DEFAULT_MAX_N_BUFS)
     return unpack_feature(byte_arr)
 
 
-def get_per_store_features_from_measure_pairs(
-    inputs: List[MeasureInput],
-    results: List[MeasureResult],
-    skip_first_n_feature_extraction: int = 0,
-    max_n_bufs: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def get_per_store_features_from_measure_pairs(inputs: List[MeasureInput],
+                                              results: List[MeasureResult],
+                                              skip_first_n_feature_extraction: int = 0,
+                                              max_n_bufs: Optional[int] = None) \
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Get per-store features from measurement input/result pairs
 
     Parameters
@@ -204,14 +198,13 @@ def get_per_store_features_from_measure_pairs(
         Task ids
     """
     byte_arr = _ffi_api.GetPerStoreFeaturesFromMeasurePairs(
-        inputs, results, skip_first_n_feature_extraction, max_n_bufs or DEFAULT_MAX_N_BUFS
-    )
+        inputs, results, skip_first_n_feature_extraction, max_n_bufs or DEFAULT_MAX_N_BUFS)
     return unpack_feature(byte_arr)
 
 
-def get_per_store_features_from_states(
-    states: List[Union[State, StateObject]], task: "SearchTask", max_n_bufs: Optional[int] = None
-) -> List[np.ndarray]:
+def get_per_store_features_from_states(states: List[Union[State, StateObject]],
+                                       task: "SearchTask",
+                                       max_n_bufs: Optional[int] = None) -> List[np.ndarray]:
     """Get per-store features from measurement input/result pairs
 
     Parameters
@@ -237,8 +230,7 @@ def get_per_store_features_from_states(
     elif isinstance(states[0], StateObject):
         state_objects = states
     byte_arr = _ffi_api.GetPerStoreFeaturesFromStates(
-        state_objects, task, max_n_bufs or DEFAULT_MAX_N_BUFS
-    )
+        state_objects, task, max_n_bufs or DEFAULT_MAX_N_BUFS)
     return unpack_feature(byte_arr)[0]
 
 

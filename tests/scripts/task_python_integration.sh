@@ -33,6 +33,12 @@ find . -type f -path "*.pyc" | xargs rm -f
 # Test TVM
 make cython3
 
+# Test MISRA-C runtime
+cd apps/bundle_deploy
+rm -rf build
+make test_dynamic test_static
+cd ../..
+
 # Test extern package
 cd apps/extension
 rm -rf lib
@@ -57,10 +63,7 @@ TVM_FFI=ctypes python3 -m pytest apps/dso_plugin_module
 TVM_FFI=ctypes python3 -m pytest tests/python/integration
 TVM_FFI=ctypes python3 -m pytest tests/python/contrib
 
-TVM_TEST_TARGETS="${TVM_RELAY_TEST_TARGETS:-llvm;cuda}" TVM_FFI=ctypes python3 -m pytest tests/python/relay
-
-# Command line driver test
-TVM_FFI=ctypes python3 -m pytest tests/python/driver
+TVM_FFI=ctypes python3 -m pytest tests/python/relay
 
 # Do not enable OpenGL
 # TVM_FFI=cython python -m pytest tests/webgl

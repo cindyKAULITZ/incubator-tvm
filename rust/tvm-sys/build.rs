@@ -19,43 +19,24 @@
 
 extern crate bindgen;
 
-use std::env;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use std::env;
 
-fn main() -> Result<()> {
-    let tvm_home = option_env!("TVM_HOME")
-        .map::<Result<String>, _>(|s: &str| Ok(str::to_string(s)))
-        .unwrap_or_else(|| {
-            let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .canonicalize()
-                .with_context(|| {
-                    format!(
-                        "failed to cannonicalize() CARGO_MANIFEST_DIR={}",
-                        env!("CARGO_MANIFEST_DIR")
-                    )
-                })?;
-
-            Ok(crate_dir
-                .parent()
-                .with_context(|| {
-                    format!(
-                        "failed to find parent of CARGO_MANIFEST_DIR={}",
-                        env!("CARGO_MANIFEST_DIR")
-                    )
-                })?
-                .parent()
-                .with_context(|| {
-                    format!(
-                        "failed to find the parent of the parent of CARGO MANIFEST_DIR={}",
-                        env!("CARGO_MANIFEST_DIR")
-                    )
-                })?
-                .to_str()
-                .context("failed to convert to strings")?
-                .to_string())
-        })?;
+fn main() {
+    let tvm_home = option_env!("TVM_HOME").map(str::to_string).unwrap_or({
+        let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .canonicalize()
+            .unwrap();
+        crate_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+    });
 
     if cfg!(feature = "bindings") {
         println!("cargo:rerun-if-env-changed=TVM_HOME");
@@ -75,9 +56,7 @@ fn main() -> Result<()> {
         .derive_eq(true)
         .derive_default(true)
         .generate()
-        .map_err(|()| anyhow::anyhow!("failed to generate bindings"))?
+        .expect("unable to generate bindings")
         .write_to_file(PathBuf::from("src/c_runtime_api.rs"))
-        .context("failed to write bindings")?;
-
-    Ok(())
+        .expect("can not write the bindings!");
 }

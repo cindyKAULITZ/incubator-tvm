@@ -56,8 +56,6 @@ target_include_directories(sim_dev
   PUBLIC "."
   PUBLIC ".."
   PUBLIC "../../../../../include"
-)
-target_include_directories(sim_dev SYSTEM
   PUBLIC "../../../../../3rdparty/dlpack/include"
 )
 

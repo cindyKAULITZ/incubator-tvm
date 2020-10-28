@@ -26,17 +26,12 @@ from . import workload_registry
 from . import feature
 
 # Shortcut
-from .auto_schedule import SearchTask, TuningOptions, HardwareParams, create_task, auto_schedule
+from .auto_schedule import SearchTask, TuningOptions, HardwareParams, \
+    auto_schedule, EmptyPolicy, SketchPolicy
 from .compute_dag import ComputeDAG
 from .cost_model import RandomModel, XGBModel
-from .measure import (
-    MeasureInput,
-    MeasureResult,
-    LocalBuilder,
-    LocalRunner,
-    RPCRunner,
-    LocalRPCMeasureContext,
-)
-from .measure_record import RecordToFile, RecordReader, load_best, load_records, save_records
-from .search_policy import EmptyPolicy, SketchPolicy, PreloadMeasuredStates
+from .measure import MeasureInput, MeasureResult, LocalBuilder, LocalRunner, RPCRunner, \
+    LocalRPCMeasureContext
+from .measure_record import RecordToFile, RecordReader, load_best, \
+    load_records, save_records
 from .workload_registry import register_workload, make_workload_key

@@ -22,7 +22,6 @@ Reorg operator, used in darknet.
 from __future__ import absolute_import as _abs
 from .. import cpp
 
-
 def reorg(data, stride):
     """Reorg forward operators.
 

@@ -1,4 +1,3 @@
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -160,13 +159,10 @@ void* MetalWorkspace::AllocDataSpace(TVMContext ctx, size_t nbytes, size_t align
   */
   id<MTLBuffer> buf = [dev newBufferWithLength:nbytes options:storage_mode];
   CHECK(buf != nil);
-  return (void*)(CFBridgingRetain(buf));
+  return (__bridge void*)([buf retain]);
 }
 
 void MetalWorkspace::FreeDataSpace(TVMContext ctx, void* ptr) {
-  // MTLBuffer PurgeableState should be set to empty before manual
-  // release in order to prevent memory leak
-  [(id<MTLBuffer>)ptr setPurgeableState:MTLPurgeableStateEmpty];
   // release the ptr.
   CFRelease(ptr);
 }
@@ -255,10 +251,7 @@ void MetalWorkspace::FreeWorkspace(TVMContext ctx, void* data) {
 
 MetalThreadEntry::~MetalThreadEntry() {
   for (auto x : temp_buffer_) {
-    if (x != nil) {
-      [(id<MTLBuffer>)x setPurgeableState:MTLPurgeableStateEmpty];
-      [x release];
-    }
+    if (x != nil) [x release];
   }
 }
 

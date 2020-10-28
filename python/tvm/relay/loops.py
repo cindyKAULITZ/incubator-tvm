@@ -22,7 +22,6 @@ from .scope_builder import ScopeBuilder
 from . import expr as _expr
 from . import function as _function
 
-
 def while_loop(cond, loop_vars, loop_bodies):
     """
     Construct a while loop.

@@ -65,7 +65,6 @@
 #include <tvm/auto_scheduler/search_task.h>
 #include <tvm/node/node.h>
 
-#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -99,35 +98,6 @@ class SearchCallbackNode : public Object {
 class SearchCallback : public ObjectRef {
  public:
   TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(SearchCallback, ObjectRef, SearchCallbackNode);
-};
-
-/*! \brief Preload measured states from a log file.
- * This can resume the state of the search policy */
-class PreloadMeasuredStatesNode : public SearchCallbackNode {
- public:
-  /*! \brief The name of the record log file. */
-  String filename;
-
-  void Callback(SearchPolicyNode* policy) final;
-
-  static constexpr const char* _type_key = "auto_scheduler.PreloadMeasuredStates";
-  TVM_DECLARE_FINAL_OBJECT_INFO(PreloadMeasuredStatesNode, SearchCallbackNode);
-};
-
-/*!
- * \brief Managed reference to PreloadMeasuredStatesNode.
- * \sa PreloadMeasuredStatesNode
- */
-class PreloadMeasuredStates : public SearchCallback {
- public:
-  /*!
-   * \brief The constructor.
-   * \param filename The name of the record log file.
-   */
-  explicit PreloadMeasuredStates(String filename);
-
-  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(PreloadMeasuredStates, SearchCallback,
-                                        PreloadMeasuredStatesNode);
 };
 
 /*! \brief Attribute keys of ops used for SearchPolicy. */
@@ -172,12 +142,6 @@ class SearchPolicyNode : public Object {
                        ProgramMeasurer measurer) = 0;
 
   /*!
-   * \brief Preload measured states from a log file to resume the state of the search policy.
-   * \param log_file The name of the record log file.
-   */
-  void PreloadMeasuredStates(const String& log_file);
-
-  /*!
    * \brief Call SearchCallback with the current SearchPolicyNode
    * \param callbacks SearchCallback to be called.
    */
@@ -192,7 +156,7 @@ class SearchPolicyNode : public Object {
    * We store the string format of a state for redundancy check. This is used to make sure a
    * measured state will never be measured again.
    */
-  std::unordered_set<std::string> measured_states_set_;
+  std::unordered_set<String> measured_states_set_;
   /*! \brief The array of already measured states.
    *  The good states can be used as the initial population in evolutionary search. */
   std::vector<State> measured_states_vector_;

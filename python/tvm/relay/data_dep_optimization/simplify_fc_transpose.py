@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=unused-argument, not-context-manager
+#pylint: disable=unused-argument, not-context-manager
 """Automatic optimize fc tranpose"""
 import numpy as np
 
@@ -45,6 +45,7 @@ def convert(func, params):
         Parameters of mutated Expr, with weights pre-transposed
     """
     weight_info = search_fc_transpose(func)
+    # weight_info = params.keys()
     for item in weight_info:
         name = str(item)
         w_np = params[name].asnumpy()
@@ -55,6 +56,6 @@ def convert(func, params):
         func,
         relay.transform.SimplifyFCTranspose(
             weight_info,
-        ),
+        )
     )
     return new_func, params

@@ -28,11 +28,9 @@ from .. import _ffi_api
 class CostModel(Object):
     """The base class for cost model"""
 
-
 @tvm._ffi.register_object("auto_scheduler.RandomModel")
 class RandomModel(CostModel):
     """A model returns random estimation for all inputs"""
-
     def __init__(self):
         self.__init_handle_by_constructor__(_ffi_api.RandomModel)
 
@@ -41,9 +39,9 @@ class RandomModel(CostModel):
 
         Parameters
         ----------
-        inputs : List[auto_scheduler.measure.MeasureInput]
+        inputs : List[MeasureInput]
             The measurement inputs
-        results : List[auto_scheduler.measure.MeasureResult]
+        results : List[MeasureResult]
             The measurement results
         """
         _ffi_api.CostModelUpdate(self, inputs, results)
@@ -55,7 +53,7 @@ class RandomModel(CostModel):
         ----------
         search_task : SearchTask
             The search task of states
-        states : List[State]
+        statse : List[State]
             The input states
 
         Returns
@@ -87,7 +85,6 @@ def random_fill_float(size, return_ptr):
 @tvm._ffi.register_object("auto_scheduler.PythonBasedModel")
 class PythonBasedModel(CostModel):
     """Base class for cost models implemented in python"""
-
     def __init__(self):
         def update_func(inputs, results):
             self.update(inputs, results)
@@ -103,18 +100,17 @@ class PythonBasedModel(CostModel):
             array_wrapper = np.ctypeslib.as_array(return_ptr, shape=ret.shape)
             array_wrapper[:] = ret
 
-        self.__init_handle_by_constructor__(
-            _ffi_api.PythonBasedModel, update_func, predict_func, predict_stage_func
-        )
+        self.__init_handle_by_constructor__(_ffi_api.PythonBasedModel, update_func,
+                                            predict_func, predict_stage_func)
 
     def update(self, inputs, results):
         """Update the cost model according to new measurement results (training data).
 
         Parameters
         ----------
-        inputs : List[auto_scheduler.measure.MeasureInput]
+        inputs : List[MeasureInput]
             The measurement inputs
-        results : List[auto_scheduler.measure.MeasureResult]
+        results : List[MeasureResult]
             The measurement results
         """
         raise NotImplementedError
@@ -126,7 +122,7 @@ class PythonBasedModel(CostModel):
         ----------
         search_task : SearchTask
             The search task of states
-        states : List[State]
+        statse : List[State]
             The input states
 
         Returns
@@ -143,7 +139,7 @@ class PythonBasedModel(CostModel):
         ----------
         search_task : SearchTask
             The search task of states
-        states : List[State]
+        statse : List[State]
             The input states
 
         Returns
@@ -166,7 +162,7 @@ class PythonBasedModel(CostModel):
           ...
           int    n_stage_i;                 // the number of stages in states[i]
           float  stage_scores_1[n_stage_i]; // the scores for all stages in states[i]
-          ...  // until i == N - 1
+          ...  // untill i == N - 1
         }
         To implement this format, we also store int as float, so we can store all numbers
         into a single float array.

@@ -961,10 +961,9 @@ bool DilateRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
 }
 
 // Positional relay function to create dilate operator used by frontend FFI.
-Expr MakeDilate(Expr data, Array<IndexExpr> strides, double dilation_value = 0.0) {
+Expr MakeDilate(Expr data, Array<IndexExpr> strides) {
   auto attrs = make_object<DilateAttrs>();
   attrs->strides = std::move(strides);
-  attrs->dilation_value = std::move(dilation_value);
   static const Op& op = Op::Get("nn.dilate");
   return Call(op, {data}, Attrs(attrs), {});
 }
@@ -973,7 +972,7 @@ TVM_REGISTER_GLOBAL("relay.op.nn._make.dilate").set_body_typed(MakeDilate);
 
 RELAY_REGISTER_OP("nn.dilate")
     .describe(R"code(
-Dilate data with given dilation value (0 by default).
+Dilate data with zeros.
 )code" TVM_ADD_FILELINE)
     .set_num_inputs(1)
     .add_argument("x", "1D Tensor", "Data to dilate.")

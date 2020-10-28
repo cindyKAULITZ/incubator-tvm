@@ -18,7 +18,6 @@
 """OneHot in python"""
 import numpy as np
 
-
 def one_hot(indices, on_value, off_value, depth, axis, dtype):
     """one_hot operator implemented in numpy.
 

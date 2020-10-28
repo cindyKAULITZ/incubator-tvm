@@ -21,5 +21,6 @@ from __future__ import absolute_import
 from . import traverse_graph
 from . import utils
 
-from .traverse_graph import expr2graph, get_direct_ancestor, get_in_nodes, get_out_nodes
+from .traverse_graph import expr2graph, get_direct_ancestor, get_in_nodes, \
+    get_out_nodes
 from .utils import has_multiple_inputs, is_boundary_node, bind_inputs

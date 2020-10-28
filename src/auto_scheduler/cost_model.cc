@@ -91,7 +91,7 @@ void PythonBasedModelNode::PredictStages(const SearchTask& task, const Array<Sta
    *   ...
    *   int    n_stage_i;                 // the number of stages in states[i]
    *   float  stage_scores_1[n_stage_i]; // the scores for all stages in states[i]
-   *   ...  // until i == N - 1
+   *   ...  // untill i == N - 1
    * }
    * To implement this format, we also store int as float, so we can store all numbers
    * into a single float array.

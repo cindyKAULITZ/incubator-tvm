@@ -44,7 +44,3 @@ endif
 ifeq ($(USE_SORT), 1)
     APP_CPPFLAGS += -DUSE_SORT=1
 endif
-
-ifeq ($(USE_RANDOM), 1)
-    APP_CPPFLAGS += -DUSE_RANDOM=1
-endif

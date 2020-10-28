@@ -21,16 +21,15 @@ extern crate ar;
 
 use std::{env, fs::File, path::Path, process::Command};
 
-use anyhow::{Context, Result};
 use ar::Builder;
 
-fn main() -> Result<()> {
-    let out_dir = env::var("OUT_DIR")?;
+fn main() {
+    let out_dir = env::var("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir).join("test_nn");
 
-    std::fs::create_dir_all(&out_dir)?;
+    std::fs::create_dir_all(&out_dir).unwrap();
 
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = Path::new(&manifest_dir);
 
     let generator = manifest_dir.join("src").join("build_test_graph.py");
@@ -40,7 +39,7 @@ fn main() -> Result<()> {
     let output = Command::new(&generator)
         .arg(&out_dir)
         .output()
-        .with_context(|| format!("Failed to execute: {:?}", generator))?;
+        .expect("Failed to execute command");
 
     assert!(
         graph_path.exists(),
@@ -54,17 +53,18 @@ fn main() -> Result<()> {
     );
 
     let lib_file = out_dir.join("libtestnn.a");
-    let file = File::create(&lib_file).context("failed to create library file")?;
+    let file = File::create(&lib_file).unwrap();
     let mut builder = Builder::new(file);
-    builder.append_path(graph_path)?;
+    builder.append_path(graph_path).unwrap();
 
-    let status = Command::new("ranlib").arg(&lib_file).status()?;
+    let status = Command::new("ranlib")
+        .arg(&lib_file)
+        .status()
+        .expect("fdjlksafjdsa");
 
     assert!(status.success());
 
     println!("cargo:rustc-link-lib=static=testnn");
     println!("cargo:rustc-link-search=native={}", out_dir.display());
     println!("cargo:rerun-if-changed={}", generator.display());
-
-    Ok(())
 }

@@ -18,7 +18,7 @@
  */
 
 /*!
- * \file auto_scheduler/search_policy/utils.h
+ * \file auto_scheduler/search_policy/utils.cc
  * \brief Common utilities for search policies.
  */
 
@@ -32,7 +32,6 @@
 #include <tvm/te/operation.h>
 
 #include <algorithm>
-#include <condition_variable>
 #include <set>
 #include <string>
 #include <tuple>
@@ -45,31 +44,6 @@
 
 namespace tvm {
 namespace auto_scheduler {
-
-/*! \brief Return whether the search task is targeting a CPU. */
-inline bool IsCPUTask(const SearchTask& task) {
-  return (task)->target->kind->device_type == kDLCPU;
-}
-
-/*! \brief Return whether the search task is targeting a GPU. */
-inline bool IsGPUTask(const SearchTask& task) {
-  return (task)->target->kind->device_type == kDLGPU ||
-         (task)->target->kind->device_type == kDLOpenCL ||
-         (task)->target->kind->device_type == kDLVulkan ||
-         (task)->target->kind->device_type == kDLMetal ||
-         (task)->target->kind->device_type == kDLROCM ||
-         (task)->target->kind->device_type == kOpenGL;
-}
-
-/*! \brief Return whether the search task is targeting a CUDA GPU. */
-inline bool IsCUDATask(const SearchTask& task) {
-  return (task)->target->kind->device_type == kDLGPU;
-}
-
-/*! \brief Return whether the search task is targeting a OpenCL GPU. */
-inline bool IsOpenCLTask(const SearchTask& task) {
-  return (task)->target->kind->device_type == kDLOpenCL;
-}
 
 /*! \brief Argsort. Order: largest to smallest */
 template <typename T>
@@ -303,7 +277,7 @@ inline int64_t GetExtent(const Iterator& it) {
 }
 
 /*! \brief Compute the product of lengths of all space iters and all reduce iters, respectively. */
-inline std::pair<int64_t, int64_t> GetCumulativeSpaceAndReductionLength(const Stage& stage) {
+inline std::pair<int64_t, int64_t> GetCumulativeSpaceAndReductionLengh(const Stage& stage) {
   int64_t cum_space_len = 1, cum_reduce_len = 1;
   for (const auto& iter : stage->iters) {
     if (iter->iter_kind == IteratorKind::kSpatial) {
@@ -322,7 +296,7 @@ inline bool NeedsRfactor(const SearchTask& task, const State& state, int stage_i
     // Compute the product of lengths of all space iters and all reduce iters
     int cum_space_len, cum_reduce_len;
     std::tie(cum_space_len, cum_reduce_len) =
-        GetCumulativeSpaceAndReductionLength(state->stages[stage_id]);
+        GetCumulativeSpaceAndReductionLengh(state->stages[stage_id]);
 
     if (NeedsMultilevelTiling(task, state, stage_id)) {
       // Do not use rfactor if we have enough parallelism on space iters
@@ -373,33 +347,8 @@ inline bool HasSingleElementwiseMatchedConsumer(const SearchTask& task, const St
     *target_stage_id = *consumers.begin();
     if (ElementwiseMatch(task, state, stage_id, *target_stage_id) &&
         (!(HasReduceIter(state->stages[stage_id]) &&
-           HasReduceIter(state->stages[*target_stage_id]))) &&
-        (!StrEndsWith(state->stages[*target_stage_id]->op->name, ".shared"))) {
+           HasReduceIter(state->stages[*target_stage_id])))) {
       return true;
-    }
-  }
-  return false;
-}
-
-/*! \brief Return whether the step changes the number of stages */
-inline bool IsStageNumberChangingStep(const Step& step) {
-  return step->IsInstance<CacheWriteStepNode>() || step->IsInstance<CacheReadStepNode>() ||
-         step->IsInstance<RfactorStepNode>();
-}
-
-/*! \brief Return whether the state does cache_read for stage_id. */
-inline bool HasCacheReadStage(const State& s, int stage_id) {
-  for (int i = static_cast<int>(s->transform_steps.size()) - 1; i >= 0; --i) {
-    if (auto ps = s->transform_steps[i].as<CacheReadStepNode>()) {
-      if (stage_id == ps->stage_id) {
-        return true;
-      }
-    }
-
-    if (IsStageNumberChangingStep(s->transform_steps[i])) {
-      if (stage_id > s->transform_steps[i]->stage_id) {
-        stage_id--;
-      }
     }
   }
   return false;
@@ -414,63 +363,14 @@ inline bool HasCacheWriteStage(const State& s, int stage_id) {
       }
     }
 
-    if (IsStageNumberChangingStep(s->transform_steps[i])) {
+    if (s->transform_steps[i]->IsInstance<CacheWriteStepNode>() ||
+        s->transform_steps[i]->IsInstance<CacheReadStepNode>() ||
+        s->transform_steps[i]->IsInstance<RfactorStepNode>()) {
       if (stage_id > s->transform_steps[i]->stage_id) {
         stage_id--;
       }
     }
   }
-  return false;
-}
-
-/*! \brief Return whether the state does rfactor for stage_id. */
-inline bool HasRfactorStage(const State& s, int stage_id) {
-  for (int i = static_cast<int>(s->transform_steps.size()) - 1; i >= 0; --i) {
-    if (auto ps = s->transform_steps[i].as<RfactorStepNode>()) {
-      if (stage_id == ps->stage_id) {
-        return true;
-      }
-    }
-
-    if (IsStageNumberChangingStep(s->transform_steps[i])) {
-      if (stage_id > s->transform_steps[i]->stage_id) {
-        stage_id--;
-      }
-    }
-  }
-  return false;
-}
-
-/*! \brief Return whether the stage does cross thread reduction. */
-inline bool HasCrossThreadReduction(const State& state, int stage_id) {
-  std::function<bool(const Stage&)> check_stage = [](const Stage& in_stage) {
-    for (const auto& iter : in_stage->iters) {
-      if (iter->annotation == IteratorAnnotation::kThreadX &&
-          iter->iter_kind == IteratorKind::kReduction) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Check the stage itself
-  if (check_stage(state->stages[stage_id])) {
-    return true;
-  }
-
-  // Check the attached stages
-  for (size_t iter_id = 0; iter_id < state->stages[stage_id]->iters.size(); iter_id++) {
-    const auto& res =
-        state->attach_map->iter_to_attached_stages.find(std::make_pair(stage_id, iter_id));
-    if (res != state->attach_map->iter_to_attached_stages.end()) {
-      for (int attached_stage_id : res->second) {
-        if (check_stage(state->stages[attached_stage_id])) {
-          return true;
-        }
-      }
-    }
-  }
-
   return false;
 }
 
@@ -499,75 +399,6 @@ inline void ExtractOriginalIterators(const std::string& name, std::set<std::stri
   }
 }
 
-/*! \brief Get the last reduce iterator in the outermost reduce tile. */
-inline Iterator GetLastReduceIteratorInOutermostReduceTile(const Stage& stage) {
-  auto pop = stage->op.as<te::ComputeOpNode>();
-  CHECK(pop != nullptr);
-  std::set<std::string> original_names;
-
-  const std::set<std::string>& no_split_at_inner_name_set =
-      stage->op->attrs.count(SearchPolicyKey::no_split_at_inner)
-          ? GetIterNameSetParam(stage->op->attrs, SearchPolicyKey::no_split_at_inner)
-          : std::set<std::string>();
-  size_t reduce_axis_size = 0;
-  for (const auto axis : pop->reduce_axis) {
-    if (!no_split_at_inner_name_set.count(axis->var->name_hint)) {
-      reduce_axis_size++;
-    }
-  }
-  if (reduce_axis_size) {
-    for (const auto& iter : stage->iters) {
-      if (iter->iter_kind == IteratorKind::kReduction) {
-        ExtractOriginalIterators(iter->name, &original_names);
-        if (original_names.size() == reduce_axis_size) {
-          return iter;
-        }
-      }
-    }
-  } else {
-    // Return the first reduce iterator
-    for (const auto& iter : stage->iters) {
-      if (iter->iter_kind == IteratorKind::kReduction) {
-        return iter;
-      }
-    }
-  }
-
-  LOG(FATAL) << "Cannot find the iterator.";
-  return stage->iters[0];
-}
-
-/*! \brief Get the target stage id of a history step in the new state.
- * We need this because the stage_id in the history may be stale due to later steps */
-inline int GetTargetStageIDInState(const State& s, int step_id) {
-  int stage_inc = 0;
-
-  for (size_t i = step_id + 1; i < s->transform_steps.size(); ++i) {
-    if (IsStageNumberChangingStep(s->transform_steps[i])) {
-      if (s->transform_steps[i]->stage_id <= s->transform_steps[step_id]->stage_id + stage_inc)
-        stage_inc++;
-    }
-  }
-  return s->transform_steps[step_id]->stage_id + stage_inc;
-}
-
-/*! \brief Get all split steps for one stage. */
-inline void GetSplitStepIds(const State& s, int stage_id, std::vector<int>* split_step_ids) {
-  for (int i = static_cast<int>(s->transform_steps.size()) - 1; i >= 0; --i) {
-    if (auto ps = s->transform_steps[i].as<SplitStepNode>()) {
-      if (stage_id == ps->stage_id) {
-        split_step_ids->push_back(i);
-      }
-    }
-
-    if (IsStageNumberChangingStep(s->transform_steps[i])) {
-      if (stage_id > s->transform_steps[i]->stage_id) {
-        stage_id--;
-      }
-    }
-  }
-}
-
 /*! \brief Fuse all reduction iterators. */
 inline State FuseAllReductionIterators(const State& state, int stage_id, Iterator* fused_iter,
                                        Array<Iterator>* space_iters,
@@ -593,32 +424,6 @@ inline State FuseAllReductionIterators(const State& state, int stage_id, Iterato
   return tmp_s;
 }
 
-/*! \brief Fuse all outer level space iterators. */
-inline State FuseAllOuterSpaceIterators(const State& state, int stage_id, Iterator* fused_iter) {
-  std::vector<Iterator> to_fuse;
-  for (size_t iter_id = 0; iter_id < state->stages[stage_id]->iters.size(); ++iter_id) {
-    const auto& it = state->stages[stage_id]->iters[iter_id];
-    // Stop at reduce iterator or annotated iterator
-    if (it->iter_kind == IteratorKind::kReduction || it->annotation != IteratorAnnotation::kNone) {
-      break;
-    }
-    // Stop at compute_at attach point
-    if (state->attach_map->iter_to_attached_stages.count(std::make_pair(stage_id, iter_id - 1))) {
-      break;
-    }
-    to_fuse.push_back(it);
-  }
-
-  CHECK(!to_fuse.empty());
-  State tmp_s = state;
-  if (to_fuse.size() > 1) {
-    *fused_iter = tmp_s.fuse(stage_id, to_fuse);
-  } else {
-    *fused_iter = to_fuse[0];
-  }
-  return tmp_s;
-}
-
 /*! \brief Random sample states. */
 inline Array<State> RandomSampleStates(const Array<State>& in_states, std::mt19937* random_gen,
                                        size_t out_size) {
@@ -627,32 +432,6 @@ inline Array<State> RandomSampleStates(const Array<State>& in_states, std::mt199
     out_states.push_back(in_states[(*random_gen)() % in_states.size()]);
   }
   return out_states;
-}
-
-/*! \brief Compute prefix-sum probabiilty based on the given weights */
-inline void ComputePrefixSumProb(const std::vector<float>& weights,
-                                 std::vector<double>* prefix_sum_probs) {
-  // Compute selection probabilities.
-  float sum = 0.0;
-  prefix_sum_probs->resize(weights.size());
-  for (size_t i = 0; i < weights.size(); ++i) {
-    sum += std::max(weights[i], 0.0f);
-    (*prefix_sum_probs)[i] = sum;
-  }
-  for (size_t i = 0; i < weights.size(); ++i) {
-    (*prefix_sum_probs)[i] /= sum;
-  }
-}
-
-/*! \brief Random choose an index according to a prefix sum probability. */
-inline int RandomChoose(const std::vector<double>& prefix_sum_probs, std::mt19937* random_gen) {
-  std::uniform_real_distribution<> dis(0.0, 1.0);
-  double x = dis(*random_gen);
-
-  CHECK(!prefix_sum_probs.empty());
-
-  return std::lower_bound(prefix_sum_probs.begin(), prefix_sum_probs.end(), x) -
-         prefix_sum_probs.begin();
 }
 
 /*! \brief Print a title */
@@ -675,34 +454,7 @@ class SplitFactorizationMemo {
   const std::vector<int>& GetFactors(int n);
 
  private:
-  void DfsEnumerate(int now, int remaining_length, int max_innermost_factor);
-
-  /*!
-   * \brief A simple implementation of read-write lock.
-   * The guarded block can be read by multiple threads at the same time, while other operations will
-   * be blocked if one thread is writing.
-   * \note Writing threads will wait until all reading threads have finshed. If there're multiple
-   * writing threads, the process order of them is not guaranteed.
-   */
-  class ReadWriteLock {
-   public:
-    /*! \brief The method to get the read lock. One thread can process read if there's on other
-     * writing threads. */
-    void GetRead();
-    /*! \brief The method to get the write lock. One thread can process write if there's on other
-     * reading or writing threads. */
-    void GetWrite();
-    /*! \brief The method to release the read lock. */
-    void UnlockRead();
-    /*! \brief The method to release the write lock. */
-    void UnlockWrite();
-
-   private:
-    uint32_t read_count_ = 0;
-    bool is_writing_ = false;
-    std::mutex cv_mutex_;
-    std::condition_variable cv_;
-  } lock_;
+  void DfsEnumerate(int now, int remaining_lenght, int max_innermost_factor);
 
   std::unordered_map<QueryKey, Array<Array<Integer>>> memory_;
 
@@ -712,16 +464,9 @@ class SplitFactorizationMemo {
   std::unordered_map<int, std::vector<int>> factor_memory_;
 };
 
-/*! \brief Get the indexes of SplitStep that processes on spatial iterator. */
-Array<Integer> GetSpatialSplitStepIds(const State& s, int stage_id);
-
-/*! \brief Get the possible compute locations for a stage. */
-std::vector<std::pair<int, int>> GetComputeLocationCandidates(const SearchTask& task,
-                                                              const State& state, int stage_id);
-
 // Apply multi-level tiling structure according to a string format,
-// where "S" stands a space level, "R" stands for a reduction level.
-// For example, if the format is "SSRSRS", then we will
+// where "S" stands a space level, "R" stands for a reudciton level.
+// For example, if the format is "SSRSRS", the we will
 // use tiling structure:  space_L0, space_L1, reduce_L0, space_L2, reduce_L1, space_L3
 // For example, if apply "SSRSRS" to matrix multiplication,
 // we have space iterators i and j, reduce iterator k.
@@ -732,9 +477,6 @@ State DoMultiLevelTiling(const State& state, int stage_id, const std::string& fo
 // Apply tiling structure: space, space, space, ..., with tile sizes from other SplitStep
 State FollowTiling(const State& state, int stage_id, const std::vector<int>& split_step_ids,
                    int n_split);
-
-// Prune invalid states and return the results in-place.
-void PruneInvalidState(const SearchTask& task, Array<State>* states);
 
 }  // namespace auto_scheduler
 }  // namespace tvm

@@ -17,7 +17,6 @@
 import tvm
 from tvm import te
 
-
 def test_coproc_lift():
     ib = tvm.tir.ir_builder.create()
     n = te.var("n")
@@ -62,7 +61,6 @@ def test_coproc_lift():
 
     assert body.body.body.body[1].node == cp
     assert len(body.body.body.body) == 2
-
 
 if __name__ == "__main__":
     test_coproc_lift()

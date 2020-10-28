@@ -27,14 +27,10 @@ import tvm
 from . import _ffi_api
 
 
-SparseAnalysisResult = namedtuple(
-    "SparseAnalysisResult",
-    [
-        "weight_name",
-        "weight_shape",
-    ],
-)
-
+SparseAnalysisResult = namedtuple("SparseAnalysisResult", [
+    "weight_name",
+    "weight_shape",
+])
 
 def _search_dense_op_weight(expr):
     """Search name of weight in all ```nn.dense``` operator
@@ -73,27 +69,36 @@ def process_params(expr, params, block_size, sparsity_threshold):
     ret : Namedtuple[weight_name: Array[String], weight_shape: Array[Array[IntImm]]]
         return names of qualified dense weight and the shape in BSR format
     """
+    print("Enter to process params")
     memo = SparseAnalysisResult(weight_name=[], weight_shape=[])
-    weight_names = _search_dense_op_weight(expr)
+    # weight_names = _search_dense_op_weight(expr)
+    weight_names = params.keys()
     for name in weight_names:
         name = str(name)
         w_np = params[name].asnumpy()
         sparsity = 1.0 - (np.count_nonzero(w_np) / w_np.size)
+        print("sparsity = ", sparsity)
+        print("name =", name)
         if sparsity >= sparsity_threshold:
+            # print("name {} > sparsity threshold"%name)
+            # revise from dim = 1 (dense's weight shape:(none,3)) to dim = 4 (conv2d's weight shape:(1,1,3,3))
             sparse_weight = sp.bsr_matrix(w_np, blocksize=block_size)
             # remove dense weight
             del params[name]
             memo.weight_name.append(name)
-            memo.weight_shape.append(
-                list(sparse_weight.data.shape)
-                + list(sparse_weight.indices.shape)
-                + list(sparse_weight.indptr.shape)
-            )
+            memo.weight_shape.append(list(sparse_weight.data.shape) +
+                                     list(sparse_weight.indices.shape) +
+                                     list(sparse_weight.indptr.shape))
             params[name + ".data"] = tvm.nd.array(sparse_weight.data)
             params[name + ".indices"] = tvm.nd.array(sparse_weight.indices)
             params[name + ".indptr"] = tvm.nd.array(sparse_weight.indptr)
+    for key in params.keys():
+        arr = params[key].asnumpy()
+        print("Sparse_dense key's arr : " ,key)
+        print(" shape : " , arr.shape)
+        print(" value : " , arr)
     ret = SparseAnalysisResult(
         weight_name=tvm.runtime.convert(memo.weight_name),
-        weight_shape=tvm.runtime.convert(memo.weight_shape),
+        weight_shape=tvm.runtime.convert(memo.weight_shape)
     )
     return ret

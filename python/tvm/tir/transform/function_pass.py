@@ -34,10 +34,8 @@ class PrimFuncPass(Pass):
 
 def _wrap_class_function_pass(pass_cls, pass_info):
     """Wrap a python class as function pass"""
-
     class PyFunctionPass(PrimFuncPass):
         """Internal wrapper class to create a class instance."""
-
         def __init__(self, *args, **kwargs):
             # initialize handle in cass pass_cls creation failed.fg
             self.handle = None
@@ -46,8 +44,8 @@ def _wrap_class_function_pass(pass_cls, pass_info):
             # avoid a cyclic dependency
             def _pass_func(func, mod, ctx):
                 return inst.transform_function(func, mod, ctx)
-
-            self.__init_handle_by_constructor__(_ffi_api.CreatePrimFuncPass, _pass_func, pass_info)
+            self.__init_handle_by_constructor__(
+                _ffi_api.CreatePrimFuncPass, _pass_func, pass_info)
             self._inst = inst
 
         def __getattr__(self, name):
@@ -134,7 +132,8 @@ def prim_func_pass(pass_func=None, opt_level=None, name=None, required=None):
 
     required = required if required else []
     if not isinstance(required, (list, tuple)):
-        raise TypeError("Required is expected to be the type of " + "list/tuple.")
+        raise TypeError("Required is expected to be the type of " +
+                        "list/tuple.")
 
     def create_function_pass(pass_arg):
         """Internal function that creates a function pass"""

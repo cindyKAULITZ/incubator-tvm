@@ -21,8 +21,10 @@ from __future__ import absolute_import
 from tvm import relay
 from .init import create_workload
 
-
-def get_net(batch_size, num_classes=10, image_shape=(1, 28, 28), dtype="float32"):
+def get_net(batch_size,
+            num_classes=10,
+            image_shape=(1, 28, 28),
+            dtype="float32"):
     """Get network a simple multilayer perceptron.
 
     batch_size : int
@@ -43,7 +45,9 @@ def get_net(batch_size, num_classes=10, image_shape=(1, 28, 28), dtype="float32"
         The dataflow.
     """
     data_shape = (batch_size,) + image_shape
-    data = relay.var("data", shape=data_shape, dtype=dtype)
+    data = relay.var("data",
+                     shape=data_shape,
+                     dtype=dtype)
     data = relay.nn.batch_flatten(data)
     fc1 = relay.nn.dense(data, relay.var("fc1_weight"), units=128)
     fc1 = relay.nn.bias_add(fc1, relay.var("fc1_bias"), axis=-1)
@@ -58,7 +62,10 @@ def get_net(batch_size, num_classes=10, image_shape=(1, 28, 28), dtype="float32"
     return relay.Function(args, mlp)
 
 
-def get_workload(batch_size, num_classes=10, image_shape=(1, 28, 28), dtype="float32"):
+def get_workload(batch_size,
+                 num_classes=10,
+                 image_shape=(1, 28, 28),
+                 dtype="float32"):
     """Get benchmark workload for a simple multilayer perceptron.
 
     Parameters

@@ -53,7 +53,7 @@ struct TensorDom {
 /*!
  * \brief Base class of all operation nodes
  */
-class TVM_DLL OperationNode : public Object {
+class OperationNode : public Object {
  public:
   /*! \brief optional name of the operation */
   std::string name;

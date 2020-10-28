@@ -22,7 +22,6 @@ def test_env():
     mock = env.mock
     assert mock.alu == "skip_alu"
 
-
 def test_env_scope():
     env = vta.get_env()
     cfg = env.cfg_dict

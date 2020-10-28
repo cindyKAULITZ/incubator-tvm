@@ -55,6 +55,8 @@ build-tools;26.0.3
 build-tools;27.0.3
 cmake;3.6.4111459
 emulator
+extras;android;gapid;1
+extras;android;gapid;3
 extras;android;m2repository
 extras;google;auto
 extras;google;google_play_services
@@ -66,20 +68,20 @@ extras;google;simulators
 extras;google;webdriver
 extras;m2repository;com;android;support;constraint;constraint-layout;1.0.2
 extras;m2repository;com;android;support;constraint;constraint-layout-solver;1.0.2
+lldb;2.3
 platforms;android-26
 platforms;android-27
 tools
-ndk;21.3.6528147
+ndk-bundle
 EOF
 
 mkdir /root/.android 2>/dev/null || true
 touch /root/.android/repositories.cfg
-# NOTE: sdkmanager returns exit code 141
-(yes || true) | sdkmanager --licenses --sdk_root="$ANDROID_HOME" || true
+(yes || true) | sdkmanager --licenses --sdk_root="$ANDROID_HOME"
 sdkmanager --verbose --package_file=/install/package-list-minimal.txt --sdk_root="$ANDROID_HOME"
 test -d "${ANDROID_HOME}/build-tools/27.0.3"
-test -d "${ANDROID_HOME}/ndk/21.3.6528147"
-for f in ${ANDROID_HOME}/ndk/21.3.6528147/* ; do
+test -d "${ANDROID_HOME}/ndk-bundle"
+for f in ${ANDROID_HOME}/ndk-bundle/* ; do
   ln --symbolic "$f" "/usr/bin/`basename $f`"
 done
 echo "export ANDROID_HOME=${ANDROID_HOME}" >> /etc/profile
