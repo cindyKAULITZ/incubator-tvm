@@ -72,6 +72,7 @@ def compute_sparse_dense(attrs, inputs, out_type):
 reg.register_strategy("nn.sparse_dense", strategy.sparse_dense_strategy)
 reg.register_pattern("nn.sparse_dense", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
 
+# hhliao
 # sparse_conv2d
 @reg.register_compute("nn.sparse_conv2d")
 def compute_sparse_conv2d(attrs, inputs, out_type):

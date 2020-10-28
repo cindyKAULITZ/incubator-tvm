@@ -950,7 +950,7 @@ def DenseToSparse(weight_name, weight_shape):
         The registered DenseToSparse pass.
     """
     return _ffi_api.DenseToSparse(weight_name, weight_shape)
-
+# hhliao
 def Conv2dToSparse(weight_name, weight_shape):
     """
     Rewrite qualified ```nn.dense operation``` to ```nn.sparse_dense```

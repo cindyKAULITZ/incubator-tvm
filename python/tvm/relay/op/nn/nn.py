@@ -1952,6 +1952,7 @@ def sparse_dense(data, weight):
     """
     return _make.sparse_dense(data, weight.data, weight.indices, weight.indptr)
 
+# hhliao
 def sparse_conv2d(data, weight):
     """
     Computes the matrix multiplication of `data` and `weight`, where `data` is

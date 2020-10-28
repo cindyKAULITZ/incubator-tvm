@@ -93,6 +93,7 @@ RELAY_REGISTER_OP("nn.sparse_dense")
     .add_type_rel("SparseDense", SparseDenseRel);
 
 
+// hhliao
 // relay.nn.sparse_conv2d
 TVM_REGISTER_NODE_TYPE(SparseConv2dAttrs);
 
