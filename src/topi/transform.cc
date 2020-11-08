@@ -138,6 +138,10 @@ TVM_REGISTER_GLOBAL("topi.sparse_to_dense").set_body([](TVMArgs args, TVMRetValu
   *rv = sparse_to_dense(args[0], args[1], args[2], args[3]);
 });
 
+TVM_REGISTER_GLOBAL("topi.img2col_to_conv2d").set_body([](TVMArgs args, TVMRetValue* rv) {
+  *rv = img2col_to_conv2d(args[0], args[1], args[2], args[3]);
+});
+
 TVM_REGISTER_GLOBAL("topi.matmul").set_body([](TVMArgs args, TVMRetValue* rv) {
   switch (args.size()) {
     case 2:

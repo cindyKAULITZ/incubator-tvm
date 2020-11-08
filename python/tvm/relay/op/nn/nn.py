@@ -1953,15 +1953,15 @@ def sparse_dense(data, weight):
     return _make.sparse_dense(data, weight.data, weight.indices, weight.indptr)
 
 # hhliao
-def sparse_conv2d(data, weight):
-    """
+def img2col_conv2d(data, weight):
+    r"""
     Computes the matrix multiplication of `data` and `weight`, where `data` is
     a dense matrix and `weight` is a sparse (either BSR or CSR) namedtuple with
     fields `data`, `indices`, and `indptr`.
 
     .. math::
 
-        \mbox{sparse_conv2d}(data, weight)[m, n] = \mbox{matmul}(x, \mbox{as_dense}(weight)^T)[m, n]
+        \mbox{img2col_conv2d}(data, weight)[m, n] = \mbox{matmul}(x, \mbox{as_dense}(weight)^T)[m, n]
 
     where `as_dense` returns dense equivalent of the given sparse matrix.
 
@@ -1984,7 +1984,8 @@ def sparse_conv2d(data, weight):
     result: tvm.relay.Expr
         The computed result.
     """
-    return _make.sparse_conv2d(data, weight.data, weight.indices, weight.indptr)
+    return _make.img2col_conv2d(data, weight.data, weight.indices, weight.indptr)
+
 
 def sparse_transpose(x):
     r"""

@@ -936,9 +936,10 @@ struct SparseDenseAttrs : public tvm::AttrsNode<SparseDenseAttrs> {
   TVM_DECLARE_ATTRS(SparseDenseAttrs, "relay.attrs.SparseDenseAttrs") {}
 };
 
-/*! \brief Attributes for sparse_dense operator */
-struct SparseConv2dAttrs : public tvm::AttrsNode<SparseConv2dAttrs> {
-  TVM_DECLARE_ATTRS(SparseConv2dAttrs, "relay.attrs.SparseConv2dAttrs") {}
+
+/*! \brief Attributes for img2col_conv2d operator */
+struct Img2ColConv2dAttrs : public tvm::AttrsNode<Img2ColConv2dAttrs> {
+  TVM_DECLARE_ATTRS(Img2ColConv2dAttrs, "relay.attrs.Img2ColConv2dAttrs") {}
 };
 
 

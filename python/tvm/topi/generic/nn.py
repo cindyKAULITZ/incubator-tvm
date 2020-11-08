@@ -677,13 +677,13 @@ def schedule_sparse_dense(outs):
     """
     return _default_schedule(outs, False)
 
-def schedule_sparse_conv2d(outs):
-    """Schedule for sparse_conv2d
+def schedule_img2col_conv2d(outs):
+    """Schedule for img2col_conv2d
 
     Parameters
     ----------
     outs: Array of Tensor
-          The computation graph description of sparse_conv2d
+          The computation graph description of img2col_conv2d
           in the format of an array of tensors.
 
     Returns

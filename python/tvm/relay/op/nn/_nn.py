@@ -72,15 +72,15 @@ def compute_sparse_dense(attrs, inputs, out_type):
 reg.register_strategy("nn.sparse_dense", strategy.sparse_dense_strategy)
 reg.register_pattern("nn.sparse_dense", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
 
-# hhliao
-# sparse_conv2d
-@reg.register_compute("nn.sparse_conv2d")
-def compute_sparse_conv2d(attrs, inputs, out_type):
-    """Compute definition of sparse_conv2d"""
-    return [topi.nn.sparse_conv2d(inputs[0], inputs[1], inputs[2], inputs[3])]
 
-reg.register_strategy("nn.sparse_conv2d", strategy.sparse_conv2d_strategy)
-reg.register_pattern("nn.sparse_conv2d", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
+# hhliao
+@reg.register_compute("nn.img2col_conv2d")
+def compute_img2col_conv2d(attrs, inputs, out_type):
+    """Compute definition of img2col_conv2d"""
+    return [topi.nn.img2col_conv2d(inputs[0], inputs[1], inputs[2], inputs[3])]
+
+reg.register_strategy("nn.img2col_conv2d", strategy.img2col_conv2d_strategy)
+reg.register_pattern("nn.img2col_conv2d", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
 
 # sparse_transpose
 @reg.register_compute("nn.sparse_transpose")

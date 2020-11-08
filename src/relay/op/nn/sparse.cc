@@ -94,10 +94,9 @@ RELAY_REGISTER_OP("nn.sparse_dense")
 
 
 // hhliao
-// relay.nn.sparse_conv2d
-TVM_REGISTER_NODE_TYPE(SparseConv2dAttrs);
-
-bool SparseConv2dRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
+// relay.nn.img2col_conv2d
+TVM_REGISTER_NODE_TYPE(Img2ColConv2dAttrs);
+bool Img2ColConv2dRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
                     const TypeReporter& reporter) {
   CHECK_EQ(types.size(), 5);
   const auto* data = types[0].as<TensorTypeNode>();
@@ -120,23 +119,23 @@ bool SparseConv2dRel(const Array<Type>& types, int num_inputs, const Attrs& attr
     reporter->Assign(types[4], TensorType(oshape, data->dtype));
     return true;
   }
-  LOG(FATAL) << "Unknown weight ndim for nn.sparse_conv2d, should be 1 (CSR) or 3 (BSR)";
+  LOG(FATAL) << "Unknown weight ndim for nn.img2col_conv2d, should be 1 (CSR) or 3 (BSR)";
   return false;
 }
 
-// Positional relay function to create conv2d operator used by frontend FFI.
-Expr MakeSparseConv2d(Expr data, Expr weight_data, Expr weight_indices, Expr weight_indptr) {
-  auto attrs = make_object<SparseConv2dAttrs>();
-  static const Op& op = Op::Get("nn.sparse_conv2d");
+// Positional relay function to create dense operator used by frontend FFI.
+Expr MakeImg2ColConv2d(Expr data, Expr weight_data, Expr weight_indices, Expr weight_indptr) {
+  auto attrs = make_object<Img2ColConv2dAttrs>();
+  static const Op& op = Op::Get("nn.img2col_conv2d");
   return Call(op, {data, weight_data, weight_indices, weight_indptr}, Attrs(attrs), {});
 }
 
-TVM_REGISTER_GLOBAL("relay.op.nn._make.sparse_conv2d")
+TVM_REGISTER_GLOBAL("relay.op.nn._make.img2col_conv2d")
     .set_body([](const TVMArgs& args, TVMRetValue* rv) {
-      runtime::detail::unpack_call<Expr, 4>(MakeSparseConv2d, args, rv);
+      runtime::detail::unpack_call<Expr, 4>(MakeImg2ColConv2d, args, rv);
     });
 
-RELAY_REGISTER_OP("nn.sparse_conv2d")
+RELAY_REGISTER_OP("nn.img2col_conv2d")
     .describe(R"code(Applies a sparse linear transformation: :math:`Y = XW^T` with X sparse.
 
 - **data**: `(x1, x2, ..., xn, input_dim)`
@@ -144,16 +143,14 @@ RELAY_REGISTER_OP("nn.sparse_conv2d")
 - **out**: `(x1, x2, ..., xn, units)`.
 
 )code" TVM_ADD_FILELINE)
-    .set_attrs_type<SparseConv2dAttrs>()
+    .set_attrs_type<Img2ColConv2dAttrs>()
     .set_num_inputs(4)
     .add_argument("data", "nD Tensor", "Input data.")
     .add_argument("weight_data", "1D Tensor", "Weight data matrix.")
     .add_argument("weight_indices", "1D Tensor", "Weight indices matrix.")
     .add_argument("weight_indptr", "1D Tensor", "Weight indptr matrix.")
     .set_support_level(1)
-    .add_type_rel("SparseConv2d", SparseConv2dRel);
-
-
+    .add_type_rel("Img2ColConv2d", Img2ColConv2dRel);
 
 
 

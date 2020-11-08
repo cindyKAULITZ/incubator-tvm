@@ -151,5 +151,6 @@ TVM_REGISTER_GLOBAL("topi.nn.binary_dense").set_body([](TVMArgs args, TVMRetValu
   *rv = nn::binary_dense(args[0], args[1]);
 });
 
+
 }  // namespace topi
 }  // namespace tvm

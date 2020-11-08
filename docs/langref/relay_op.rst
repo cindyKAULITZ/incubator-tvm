@@ -136,6 +136,7 @@ This level enables additional math and transform operators.
    tvm.relay.reverse_sequence
    tvm.relay.unravel_index
    tvm.relay.sparse_to_dense
+   tvm.relay.img2col_to_conv2d
 
 
 **Level 4: Broadcast and Reductions**

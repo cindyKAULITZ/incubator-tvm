@@ -29,3 +29,4 @@ from .call_graph import CallGraph
 # Feature
 from . import feature
 from . import sparse_dense
+from . import img2col_conv2d

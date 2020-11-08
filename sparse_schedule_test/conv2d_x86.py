@@ -12,16 +12,26 @@ import onnx
 import tvm
 import numpy as np
 import struct
-import tvm
-import tvm.relay as relay
-import tvm.topi
-from tvm.topi.util import get_const_int, simplify, const_matrix, get_const_tuple
-from tvm.topi.nn.util import get_pad_tuple
-from tvm.topi.nn.pad import pad
-from tvm.topi.nn.conv2d import conv2d_hwcn, conv2d_nhwc
+# import tvm
+# # import tvm.relay as relay
+# # import tvm.topi
+# from tvm.topi.util import get_const_int, simplify, const_matrix, get_const_tuple
+# from tvm.topi.nn.util import get_pad_tuple
+# from tvm.topi.nn.pad import pad
+# from tvm.topi.nn.conv2d import conv2d_hwcn, conv2d_nhwc
 
-from mxnet.gluon.model_zoo.vision import get_model
-from mxnet.gluon.utils import download
+import os
+# import tvm
+import time
+import itertools
+import numpy as np
+# import tensorflow as tf
+from tvm import relay
+from tvm.contrib import graph_runtime
+from tvm.relay import data_dep_optimization as ddo
+
+# from mxnet.gluon.model_zoo.vision import get_model
+# from mxnet.gluon.utils import download
 from PIL import Image
 # from matplotlib import pyplot as plt
 
@@ -281,7 +291,7 @@ from tvm.relay import data_dep_optimization as ddo
 
 def run_sparse(mod, params, shape_dict, target, ctx, bs_r, sparsity):
     mod, params = ddo.simplify_fc_transpose.convert(mod["main"], params)
-    mod, params = ddo.sparse_conv2d.convert(mod, params, (bs_r, 1), sparsity_threshold=0.6)
+    mod, params = ddo.sparse_conv2d.convert(mod, params, (bs_r, 1), sparsity_threshold=0.2)
     for key in params.keys():
         arr = params[key].asnumpy()
         print("key %s's arr : " ,key)
@@ -323,7 +333,7 @@ if target == 'llvm -system-lib':
     mx_sym, args, auxs = mx.model.load_checkpoint("sparse_conv", 0) 
     sym, params = relay.frontend.from_mxnet(mx_sym, shape_dict, dtype, args,auxs)
     print(sym)
-    # sym , params = run_sparse(sym, params, shape_dict, target, ctx, 1, 0.002)
+    sym , params = run_sparse(sym, params, shape_dict, target, ctx, 1, 0.002)
     print(sym)
 
     # print("key = ", params.keys())

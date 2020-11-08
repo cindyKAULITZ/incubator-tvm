@@ -18,9 +18,10 @@
 """Automatic convert model from dense to block sparse"""
 
 from tvm import relay
-from tvm.relay.analysis.sparse_dense import process_params
+from tvm.relay.analysis.img2col_conv2d import process_params
 
 from .utils import _run_opt_pass
+
 # hhliao
 def convert(func, params, blocksize, sparsity_threshold):
     """Convert a dense func and according parameters to block sparse
@@ -48,9 +49,13 @@ def convert(func, params, blocksize, sparsity_threshold):
     # print("weight info",weight_info.weight_shape)
     new_func = _run_opt_pass(
         func,
-        relay.transform.Conv2dToSparse(
+        relay.transform.Conv2dToImg2Col(
             weight_info.weight_name,
             weight_info.weight_shape
         )
+        # relay.transform.add_dense(
+        #     weight_info.weight_name,
+        #     # weight_info.weight_shape
+        # )
     )
     return new_func, params

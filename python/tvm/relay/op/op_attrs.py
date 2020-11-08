@@ -505,6 +505,16 @@ class SparseToDenseAttrs(Attrs):
     """Attributes used in sparse_to_dense operators"""
 
 
+@tvm._ffi.register_object("relay.attrs.Img2ColConv2dAttrs")
+class Img2ColConv2dAttrs(Attrs):
+    """Attributes used in img2col_conv2d operators"""
+
+
+@tvm._ffi.register_object("relay.attrs.Img2ColToConv2dAttrs")
+class Img2ColToConv2dAttrs(Attrs):
+    """Attributes used in img2col_to_conv2d operators"""
+
+
 @tvm._ffi.register_object("relay.attrs.SparseTransposeAttrs")
 class SparseTransposeAttrs(Attrs):
     """Attributes used in sparse_transpose operators"""

@@ -623,6 +623,24 @@ def sparse_dense_strategy(attrs, inputs, out_type, target):
                                 name="sparse_dense.generic")
     return strategy
 
+# img2col_conv2d
+def wrap_compute_img2col_conv2d(topi_compute):
+    """wrap img2col conv2d topi compute"""
+    def _compute_img2col_conv2d(attrs, inputs, out_type):
+        return [topi_compute(inputs[0], inputs[1], inputs[2], inputs[3])]
+    return _compute_img2col_conv2d
+
+@override_native_generic_func("img2col_conv2d_strategy")
+def img2col_conv2d_strategy(attrs, inputs, out_type, target):
+    """img2col conv2d generic strategy"""
+    logger.warning("img2col conv2d is not optimized for this platform.")
+    strategy = _op.OpStrategy()
+    strategy.add_implementation(wrap_compute_img2col_conv2d(topi.nn.img2col_conv2d),
+                                wrap_topi_schedule(topi.generic.schedule_img2col_conv2d),
+                                name="img2col_conv2d.generic")
+    return strategy
+
+
 # sparse_transpose
 @generic_func
 def schedule_sparse_transpose(attrs, outs, target):

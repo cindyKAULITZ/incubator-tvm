@@ -359,6 +359,15 @@ struct SparseToDenseAttrs : public tvm::AttrsNode<SparseToDenseAttrs> {
   }
 };  // struct SparseToDenseAttrs
 
+/*! \brief Attributes used in img2col_to_conv2d operator */
+struct Img2ColToConv2dAttrs : public tvm::AttrsNode<Img2ColToConv2dAttrs> {
+  Array<Integer> output_shape;
+
+  TVM_DECLARE_ATTRS(Img2ColToConv2dAttrs, "relay.attrs.Img2ColToConv2dAttrs") {
+    TVM_ATTR_FIELD(output_shape).describe("Shape of the conv2d output tensor");
+  }
+};  // struct Img2ColToConv2dAttrs
+
 /*! \brief Attributes for ndarray_size operator */
 struct NdarraySizeAttrs : public tvm::AttrsNode<NdarraySizeAttrs> {
   DataType dtype;
