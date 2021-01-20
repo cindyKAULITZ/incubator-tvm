@@ -333,7 +333,7 @@ if target == 'llvm -system-lib':
     mx_sym, args, auxs = mx.model.load_checkpoint("sparse_conv", 0) 
     sym, params = relay.frontend.from_mxnet(mx_sym, shape_dict, dtype, args,auxs)
     print(sym)
-    sym , params = run_sparse(sym, params, shape_dict, target, ctx, 1, 0.002)
+    # sym , params = run_sparse(sym, params, shape_dict, target, ctx, 1, 0.002)
     print(sym)
 
     # print("key = ", params.keys())

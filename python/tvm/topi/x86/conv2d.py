@@ -28,6 +28,7 @@ from ..nn.conv2d import conv2d_infer_layout, _get_workload as _get_conv2d_worklo
 from ..nn.conv2d import unpack_NCHWc_to_nchw
 from ..nn.depthwise_conv2d import _get_workload as _get_depthwise_conv2d_workload
 from ..nn.util import get_pad_tuple
+from ..nn import pad, mirror_pad
 from ..util import get_const_tuple, traverse_inline
 from . import conv2d_avx_1x1, conv2d_avx_common
 
@@ -123,8 +124,15 @@ def schedule_conv2d_nhwc(outs):
 
 def conv2d_nchw(data, kernel, strides, padding, dilation, out_dtype):
     layout = "NCHW"
-    packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation, layout, layout, out_dtype)
-    return unpack_NCHWc_to_nchw(packed_out, out_dtype)
+    # default
+    # packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation,
+    #                           layout, layout, out_dtype)
+    # return unpack_NCHWc_to_nchw(packed_out, out_dtype)
+    
+    # im2col
+    packed_out = conv2d_NCHWc_im2col(data, kernel, strides, padding, dilation,
+                              layout, layout, out_dtype)
+    return packed_out
 
 
 def schedule_conv2d_nchw(outs):
@@ -261,6 +269,73 @@ def schedule_conv2d_NCHWc(cfg, outs):
 
     traverse_inline(s, outs[0].op, _callback)
     return s
+
+@autotvm.register_topi_compute("conv2d_NCHWc_im2col.x86")
+def conv2d_NCHWc_im2col(cfg, data, kernel, strides, padding, dilation, layout, out_layout, out_dtype='float32'):
+    """Compute conv2d with NCHWc layout."""
+    print('in_conv2d_im2col')
+    # layout and out_layout are not used here,
+    # we keep them for debug convenience when dumping autotvm workload
+    if len(data.shape) == 5:
+        N, ic_chunk, ih, iw, ic_bn = get_const_tuple(data.shape)
+        oc_chunk, ic_chunk_group, kernel_height, kernel_width, _, oc_bn = get_const_tuple(kernel.shape)
+        in_channel = ic_chunk * ic_bn
+        num_filter = oc_chunk * oc_bn
+    else:
+        N, in_channel, ih, iw = get_const_tuple(data.shape)
+        num_filter, ic, kernel_height, kernel_width = get_const_tuple(kernel.shape)
+
+    # Define autotvm tuning space
+    is_kernel_1x1 = kernel_height == 1 and kernel_width == 1
+    pt, pl, pb, pr = get_pad_tuple(padding, (kernel_height, kernel_width))
+    sh, sw = strides if isinstance(strides, (tuple, list)) else (strides, strides)
+
+    # padding
+    HPAD = pt + pb
+    WPAD = pl + pr
+    
+    dilation_h, dilation_w = dilation if isinstance(dilation, (tuple, list)) \
+        else (dilation, dilation)
+
+    dilated_kernel_h = (kernel_height - 1) * dilation_h + 1
+    dilated_kernel_w = (kernel_width - 1) * dilation_w + 1
+    
+    out_height = (ih + HPAD - dilated_kernel_h) // sh + 1
+    out_width = (iw + WPAD - dilated_kernel_w) // sw + 1
+
+    DO_PAD = (HPAD != 0 and WPAD != 0)
+    if DO_PAD:
+        data_pad = pad(data, (0, 0, HPAD//2, WPAD//2), name="data_pad")
+    else:
+        data_pad = data
+    
+    ALIGN = 16
+    def upround(x, align):
+        return (x + align - 1) // align * align
+    reduce_len = upround(in_channel * kernel_height * kernel_width, ALIGN)
+
+    # A [CO, CI * KH * KW]
+    A = te.compute((upround(num_filter, ALIGN), reduce_len), lambda i, j:
+                    kernel[i][j // kernel_width // kernel_height][j // kernel_width % kernel_height][j % kernel_width], name='A')
+
+    # B [CI * KH * KW, N * OH * OW]
+    B = te.compute((reduce_len, upround(N * out_height * out_width, ALIGN)), lambda i, j:\
+                te.if_then_else(te.all(i < in_channel * kernel_height * kernel_width, j < N * out_height * out_width),
+                       data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
+                       [j % out_width*sw + i % kernel_width],
+                       tvm.tir.const(0, data_pad.dtype)), name='B')
+
+    gemm_n, gemm_l, gemm_m = A.shape[0], reduce_len, B.shape[1]
+
+    # C [CO, N * OH * OW]
+    k = te.reduce_axis((0, gemm_l), name='k')
+    C = te.compute((gemm_n, gemm_m), lambda i, j: te.sum(A[i, k] * B[k, j], axis=k), name='C')
+
+    oshape = (N, num_filter, out_height, out_width)
+
+    return te.compute(oshape, lambda n, co, h, w:\
+                 C[co][n * out_width * out_width + h * out_width + w] + tvm.tir.const(0, C.dtype) * C[gemm_n-1, gemm_m-1],
+                         name='conv2d_NCHWc', tag='im2col_conv_output')
 
 
 # FIXME - https://github.com/apache/incubator-tvm/issues/4122
