@@ -24,10 +24,6 @@
 #ifndef COMPILER_RT_BUILTIN_FP16_H_
 #define COMPILER_RT_BUILTIN_FP16_H_
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4305 4805)
-#endif
-
 #include <cstdint>
 
 static inline uint32_t __clz(uint32_t x) {
