@@ -78,6 +78,28 @@ inline Expr MakeConvWinograd(Expr data, Expr weight, int tile_size, Array<IndexE
 }
 
 template <typename T>
+inline Expr MakeIm2colTransform(Expr data, Array<IndexExpr> strides, Array<IndexExpr> padding,
+                         Array<IndexExpr> dilation, int groups, IndexExpr channels,
+                         Array<IndexExpr> kernel_size, std::string data_layout, std::string kernel_layout,
+                         std::string transform_tag, std::string out_layout, DataType out_dtype,
+                         std::string op_name) {
+  auto attrs = make_object<T>();
+  attrs->strides = std::move(strides);
+  attrs->padding = std::move(padding);
+  attrs->dilation = std::move(dilation);
+  attrs->groups = groups;
+  attrs->channels = std::move(channels);
+  attrs->kernel_size = std::move(kernel_size);
+  attrs->data_layout = std::move(data_layout);
+  attrs->kernel_layout = std::move(kernel_layout);
+  attrs->transform_tag = std::move(transform_tag);
+  attrs->out_layout = std::move(out_layout);
+  attrs->out_dtype = std::move(out_dtype);
+  const Op& op = Op::Get(op_name);
+  return Call(op, {data}, Attrs(attrs), {});
+}
+
+template <typename T>
 inline Expr MakeConvGemm(Expr data, Expr weight, Array<IndexExpr> strides, Array<IndexExpr> padding,
                          Array<IndexExpr> dilation, int groups, IndexExpr channels,
                          Array<IndexExpr> kernel_size, std::string data_layout,

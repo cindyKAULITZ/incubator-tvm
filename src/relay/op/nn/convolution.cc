@@ -154,6 +154,34 @@ with the layer input to produce a tensor of outputs.
     .add_type_rel("Conv3D", Conv3DRel<Conv3DAttrs>)
     .set_attr<FInferCorrectLayout>("FInferCorrectLayout", ConvInferCorrectLayout<Conv3DAttrs>);
 
+// relay.nn.im2col_transform
+TVM_REGISTER_NODE_TYPE(Conv2DIm2colAttrs);
+TVM_REGISTER_GLOBAL("relay.op.nn._make.im2col_transform")
+    .set_body_typed([](Expr data, Array<IndexExpr> strides, Array<IndexExpr> padding,
+                       Array<IndexExpr> dilation, int groups, IndexExpr channels,
+                       Array<IndexExpr> kernel_size, std::string data_layout, std::string kernel_layout,
+                       std::string transform_tag, 
+                       std::string out_layout, DataType out_dtype) {
+      return MakeIm2colTransform<Conv2DIm2colAttrs>(
+          data, strides, padding, dilation, groups, channels, kernel_size, data_layout, kernel_layout,
+          transform_tag , out_layout, out_dtype, "nn.im2col_transform");
+    });
+
+RELAY_REGISTER_OP("nn.im2col_transform")
+    .describe(R"code(transform conv2d data/weight to im2col form
+
+- **data**: Input is 4D array of shape  (batch_size, height, width, in_channels)
+
+- **out**:  Output is 2D array of shape (out_height, out_width)
+)code" TVM_ADD_FILELINE)
+    .set_attrs_type<Conv2DIm2colAttrs>()
+    .set_num_inputs(1)
+    .add_argument("data", "Tensor", "The input tensor.")
+    .set_support_level(10)
+    .add_type_rel("Im2Col", Im2ColRel<Conv2DIm2colAttrs>)
+    .set_attr<FInferCorrectLayout>("FInferCorrectLayout", ConvInferCorrectLayout<Conv2DIm2colAttrs>);
+
+
 // relay.nn.conv3d_transpose
 TVM_REGISTER_NODE_TYPE(Conv3DTransposeAttrs);
 
