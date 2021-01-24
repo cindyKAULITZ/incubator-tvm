@@ -84,19 +84,29 @@ class TransHelper(ExprFunctor):
         if call.op.name == "nn.conv2d" :
             # check pattern
             print('catch op : ', call.op.name)
+            print("meet conv2d with padding : ", call.attrs.padding)
+            print("meet conv2d with pakernel_sizedding : ", call.attrs.kernel_size)
+            # print('catch op : ', call.op)
+            # print('catch op : ', call)
+            # print('catch op attrs : ', type(call.op))
             print('append cast')
             # need to append new_args too.
             appended_args = []
             # appended_args = new_args
-            # appended_args.append(relay.nn.contrib_conv2d_gemm_weight_transform(new_args[1],3,3))
-            # appended_args.append(relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],appended_args[0]))
+            # appended_args.append(relay.reshape(new_args[0],(4,4)))
+            # appended_args.append(relay.reshape(new_args[1],(9,-1)))
+            appended_args.append(relay.nn.im2col_transform(new_args[0],channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="data"))
+            appended_args.append(relay.nn.im2col_transform(new_args[1],channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="weight"))
+            
+            # appended_args.append(relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],new_args[1]))
             # appended_args.append(relay.nn.dense(appended_args[0], appended_args[1]))
-            appended_args.append(relay.layout_transform(new_args[0], "NCHW", "NCHW"))
-            appended_args.append(relay.layout_transform(new_args[1], "HWIO", "OIHW"))
-            appended_args.append(relay.nn.dense(appended_args[0], appended_args[1]))
+            # appended_args.append(relay.layout_transform(new_args[0], "NCHW", "NCHW"))
+            # appended_args.append(relay.layout_transform(new_args[1], "HWIO", "OIHW"))
+            # appended_args.append(relay.nn.dense(appended_args[0], appended_args[1]))
             for i in range(2, new_args_len):
                 appended_args.append(new_args[i])
-            # return relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],appended_args[0],channels=4,kernel_size=(3,3))
+            
+            # return relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],new_args[1],channels=4,kernel_size=(3,3))
             return relay.nn.dense(appended_args[0], appended_args[1])
         print('end of call : ', call.op.name, ' with output-dtype : ', call.type_args)
         return relay.Call(new_fn, new_args, call.attrs)

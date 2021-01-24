@@ -179,8 +179,94 @@ RELAY_REGISTER_OP("nn.im2col_transform")
     .add_argument("data", "Tensor", "The input tensor.")
     .set_support_level(10)
     .add_type_rel("Im2Col", Im2ColRel<Conv2DIm2colAttrs>)
-    .set_attr<FInferCorrectLayout>("FInferCorrectLayout", ConvInferCorrectLayout<Conv2DIm2colAttrs>);
+    .set_attr<TOpPattern>("TOpPattern", kInjective);
+    // .set_attr<FInferCorrectLayout>("FInferCorrectLayout", ConvInferCorrectLayout<Conv2DIm2colAttrs>);
 
+Array<IndexExpr> infer_im2col_newshape(const Array<IndexExpr>& data_shape, const Attrs& attrs) {
+  const auto* param = attrs.as<Conv2DIm2colAttrs>();
+  Array<IndexExpr> oshape;
+  Array<IndexExpr> ishape;
+  Array<Integer> newshape;
+  LOG(WARNING) << "Call infer type";
+  // if (param->reverse) {
+  //   ishape.Assign(data_shape.rbegin(), data_shape.rend());
+  //   newshape.Assign(data_shape[2], data_shape[3]);
+  // } else {
+  //   ishape = data_shape;
+  //   newshape = param->newshape;
+  // }
+  ishape = data_shape;
+  // compute newshape
+  int k_h = param->kernel_size[0].as<IntImmNode>()->value;
+  int k_w = param->kernel_size[1].as<IntImmNode>()->value;
+  LOG(WARNING) << "Compute k_h K_w";
+  printf("kw = %d\n", k_w);
+  int stride = param->strides[0].as<IntImmNode>()->value;
+  LOG(WARNING) << "Compute stride";
+  int padding = param->padding[0].as<IntImmNode>()->value;
+  LOG(WARNING) << "Compute padding";
+  int o_h = (data_shape[2].as<IntImmNode>()->value + 2*padding - k_h)/stride+1;
+  int o_w = (data_shape[3].as<IntImmNode>()->value+ 2*padding - k_w)/stride+1;
+  LOG(WARNING) << "Compute o_h, o_w";
+  newshape.push_back(o_h);
+  newshape.push_back(o_w);
+  LOG(WARNING) << "push back";
+// //   printf("o_h : %d, o_w : %d\n", o_h, o_w);
+// //   LOG(WARNING) << " o_h and o_w : " << o_h << " " << o_w;
+//   oshape.push_back(o_h);
+//   oshape.push_back(o_w);
+
+
+  oshape.Assign(data_shape.rbegin(), data_shape.rend());
+  LOG(WARNING) << " oshape : " << oshape[0].as<IntImmNode>()->value;
+
+  std::unordered_set<size_t> used_input_dims;
+  std::unordered_set<size_t> used_output_dims;
+  size_t src_idx = 0;
+  int infer_idx = -1;
+
+  for (size_t i = 0; i < 2; ++i) {
+    int svalue = newshape[i]->value;
+    // special flag handling for shape inference.
+    if (svalue > 0) {
+      oshape.push_back(newshape[i]);
+      ++src_idx;
+    } else {
+      LOG(FATAL) << "Unsupported special value: " << svalue;
+    }
+  }
+
+  if (infer_idx >= 0) {
+    IndexExpr infer_dim = 1;
+    for (size_t i = 0; i < ishape.size(); ++i) {
+      if (used_input_dims.count(i) != 0) {
+        continue;
+      }
+      if (ishape[i].as<AnyNode>()) {
+        infer_dim = Any();
+        break;
+      }
+      infer_dim *= ishape[i];
+    }
+    if (!infer_dim.as<AnyNode>()) {
+      for (size_t i = 0; i < oshape.size(); ++i) {
+        if (used_output_dims.count(i) != 0) {
+          continue;
+        }
+        if (oshape[i].as<AnyNode>()) {
+          infer_dim = Any();
+          break;
+        }
+        infer_dim = indexdiv(infer_dim, oshape[i]);
+      }
+    }
+    arith::Analyzer ana;
+    infer_dim = ana.Simplify(infer_dim);
+    oshape.Set(infer_idx, infer_dim);
+  }
+
+  return oshape;
+}
 
 // relay.nn.conv3d_transpose
 TVM_REGISTER_NODE_TYPE(Conv3DTransposeAttrs);

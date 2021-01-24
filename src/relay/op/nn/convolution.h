@@ -25,6 +25,7 @@
 #define TVM_RELAY_OP_NN_CONVOLUTION_H_
 
 #include <tvm/tir/analysis.h>
+#include <tvm/arith/analyzer.h>
 
 #include <string>
 #include <utility>
@@ -34,6 +35,15 @@
 
 namespace tvm {
 namespace relay {
+
+  /*!
+ * \brief Infer output shape for reshape.
+ *
+ * \param data_shape The input data shape.
+ * \param attrs The attributes.
+ * \return Output shape.
+ */
+Array<IndexExpr> infer_im2col_newshape(const Array<IndexExpr>& data_shape, const Attrs& attrs);
 
 // Standard convolution operator shape relations
 template <typename AttrType>
@@ -578,75 +588,69 @@ bool Conv2DWinogradRel(const Array<Type>& types, int num_inputs, const Attrs& at
   return true;
 }
 
+
+
+
 template <typename AttrType>
 bool Im2ColRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
                    const TypeReporter& reporter) {
+  const auto* param = attrs.as<Conv2DIm2colAttrs>();
+  // types: [data, result]
   CHECK_EQ(types.size(), 2);
   const auto* data = types[0].as<TensorTypeNode>();
-  if (data == nullptr) return false;
-  static const Layout kNHWC("NHWC");
-  static const Layout kHWIO("HWIO");
-
-  const AttrType* param = attrs.as<AttrType>();
-  CHECK(param != nullptr);
-  const Layout in_layout(param->data_layout);
-  // const Layout kernel_layout(param->kernel_layout);
-
-  const auto trans_in_layout = tir::BijectiveLayout(in_layout, kNHWC);
-  CHECK(trans_in_layout.defined())
-      << "Conv only support input layouts that are convertible from NHWC."
-      << " But got " << in_layout;
-
-  // const auto trans_kernel_layout = tir::BijectiveLayout(kernel_layout, kHWIO);
-  // CHECK(trans_kernel_layout.defined())
-  //     << "Conv only support kernel layouts that are convertible from HWIO."
-  //     << " But got " << kernel_layout;
-
-  Layout out_layout(param->out_layout == "" ? param->data_layout : param->out_layout);
-  const auto trans_out_layout = tir::BijectiveLayout(out_layout, kNHWC);
-  CHECK(trans_out_layout.defined())
-      << "Conv only support output layouts that are convertible from NHWC."
-      << " But got " << out_layout;
-
-  Array<IndexExpr> dshape_nhwc = trans_in_layout.ForwardShape(data->shape);
-
-  IndexExpr channels, dilated_ksize_y, dilated_ksize_x;
-
-  CHECK(param->kernel_size.defined() && param->channels.defined())
-      << "The kernel size and channels of a Conv must be set or inferred by previous pass";
-
-  CHECK_EQ(param->kernel_size.size(), 2);
-  CHECK_EQ(param->dilation.size(), 2);
-
-  channels = param->channels;
-  dilated_ksize_y = 1 + (param->kernel_size[0] - 1) * param->dilation[0];
-  dilated_ksize_x = 1 + (param->kernel_size[1] - 1) * param->dilation[1];
-
-  // NOTE: Do not check weight shape here!
-
-  // dilation
-  Array<IndexExpr> oshape({dshape_nhwc[0], 0, 0, channels});
-
-  IndexExpr pad_h, pad_w;
-  GetPaddingHeightWidth(param->padding, &pad_h, &pad_w);
-  if (!dshape_nhwc[2].as<tir::AnyNode>()) {
-    oshape.Set(1, (dshape_nhwc[1] + pad_h - dilated_ksize_y) / param->strides[0] + 1);
-  } else {
-    oshape.Set(1, dshape_nhwc[1]);
-  }
-  if (!dshape_nhwc[3].as<tir::AnyNode>()) {
-    oshape.Set(2, (dshape_nhwc[2] + pad_w - dilated_ksize_x) / param->strides[1] + 1);
-  } else {
-    oshape.Set(2, dshape_nhwc[2]);
+  if (data == nullptr) {
+    CHECK(types[0].as<IncompleteTypeNode>())
+        << "reshape: expect input type to be TensorType but get " << types[0];
+    return false;
   }
 
-  DataType out_dtype = param->out_dtype;
-  if (out_dtype.bits() == 0) {
-    out_dtype = data->dtype;
+  const auto& oshape = infer_im2col_newshape(data->shape, attrs);
+
+  // Verify that the sum of dimensions in the output shape is the sum of
+  // dimensions in the input shape
+  Array<IndexExpr> data_shape;
+  // if (param->reverse) {
+  //   data_shape.Assign(data->shape.rbegin(), data->shape.rend());
+  // } else {
+  //   data_shape = data->shape;
+  // }
+  data_shape = data->shape;
+
+  bool found_dynamic = false;
+  int64_t oshape_sum = 1;
+  for (auto& x : oshape) {
+    // Check if we have a dynamic shape. If we do, we can't verify if the
+    // reshape is valid. Dynamic shapes are marker by using Any, but can also
+    // occur from SizeVar's. In the case of SizeVar, the shape expression can
+    // be an AST. We can't easily check if we have an AST because of a ShapeVar
+    // or some other reason, so our check for dynamic shape is just if we can
+    // convert the shape to in integer or not.
+    if (!x->IsInstance<tvm::Integer::ContainerType>()) {
+      found_dynamic = true;
+      break;
+    }
+    oshape_sum *= Downcast<tvm::Integer>(x)->value;
   }
-  oshape = trans_out_layout.BackwardShape(oshape);
-  // assign output type
-  reporter->Assign(types[2], TensorType(oshape, out_dtype));
+  int64_t data_shape_sum = 1;
+  for (auto& x : data_shape) {
+    if (!x->IsInstance<tvm::Integer::ContainerType>()) {
+      found_dynamic = true;
+      break;
+    }
+    data_shape_sum *= Downcast<tvm::Integer>(x)->value;
+  }
+  // if (!found_dynamic) {
+  //   CHECK_EQ(oshape_sum, data_shape_sum)
+  //       << "Input tensor shape and reshaped shape are not compatible";
+  // }
+
+  // if (param->reverse) {
+  //   reporter->Assign(types[1],
+  //                    TensorType(Array<IndexExpr>(oshape.rbegin(), oshape.rend()), data->dtype));
+  // } else {
+  //   reporter->Assign(types[1], TensorType(oshape, data->dtype));
+  // }
+  reporter->Assign(types[1], TensorType(oshape, data->dtype));
   return true;
 }
 
