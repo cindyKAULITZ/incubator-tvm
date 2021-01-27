@@ -37,13 +37,14 @@ namespace tvm {
 namespace relay {
 
   /*!
- * \brief Infer output shape for reshape.
+ * \brief Infer output shape for im2col.
  *
  * \param data_shape The input data shape.
  * \param attrs The attributes.
  * \return Output shape.
  */
 Array<IndexExpr> infer_im2col_newshape(const Array<IndexExpr>& data_shape, const Attrs& attrs);
+Array<te::Tensor> Im2colTransformCompute(const Attrs& attrs, const Array<te::Tensor>& inputs, const Type& out_type);
 
 // Standard convolution operator shape relations
 template <typename AttrType>
@@ -639,6 +640,8 @@ bool Im2ColRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
     }
     data_shape_sum *= Downcast<tvm::Integer>(x)->value;
   }
+  // TODO : fix shape checking !!! 
+
   // if (!found_dynamic) {
   //   CHECK_EQ(oshape_sum, data_shape_sum)
   //       << "Input tensor shape and reshaped shape are not compatible";

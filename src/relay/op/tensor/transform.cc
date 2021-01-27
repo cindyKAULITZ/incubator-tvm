@@ -593,7 +593,6 @@ bool ReshapeRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
   }
 
   const auto& oshape = infer_newshape(data->shape, attrs);
-
   // Verify that the sum of dimensions in the output shape is the sum of
   // dimensions in the input shape
   Array<IndexExpr> data_shape;

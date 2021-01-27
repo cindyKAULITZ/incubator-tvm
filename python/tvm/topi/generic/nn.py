@@ -121,6 +121,22 @@ def schedule_conv2d_nhwc(outs):
     """
     return _default_schedule(outs, False)
 
+def schedule_im2col_transform_(outs):
+    """Schedule for im2col_transform
+
+    Parameters
+    ----------
+    outs: Array of Tensor
+          The computation graph description of im2col_transform
+          in the format of an array of tensors.
+
+    Returns
+    -------
+    sch: Schedule
+        The computation schedule for the op.
+    """
+    return _default_schedule(outs, False)
+
 
 def schedule_conv2d_NCHWc(outs):
     """Schedule for conv2d_NCHW[x]c

@@ -83,6 +83,20 @@ def schedule_log_softmax_cpu(attrs, outs, target):
     with target:
         return topi.x86.schedule_softmax(outs)
 
+@im2col_transform_strategy.register("cpu")
+def im2col_transform_strategy_cpu(attrs, inputs, out_type, target):
+    """im2col_transform x86 strategy"""
+    logger.warning("im2col_transform is not optimized for this platform.")
+    strategy = _op.OpStrategy()
+    
+    strategy.add_implementation(
+        wrap_compute_im2col_transform(topi.nn.im2col_transform),
+        wrap_topi_schedule(topi.generic.schedule_im2col_transform_),
+        name="im2col_transform.x86", plevel=15
+    )
+   
+    return strategy
+
 
 @conv2d_strategy.register("cpu")
 def conv2d_strategy_cpu(attrs, inputs, out_type, target):

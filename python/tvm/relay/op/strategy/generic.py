@@ -192,6 +192,43 @@ def wrap_compute_conv2d(
 
     return _compute_conv2d
 
+# im2col_transform
+def wrap_compute_im2col_transform(
+    topi_compute, need_data_layout=False, need_out_layout=False, has_groups=False
+):
+    """Wrap im2col_transform topi compute"""
+
+    def _compute_im2col_transform(attrs, inputs, out_type):
+        padding = get_const_tuple(attrs.padding)
+        strides = get_const_tuple(attrs.strides)
+        dilation = get_const_tuple(attrs.dilation)
+        channels = attrs.channels
+        kernel_size = get_const_tuple(attrs.kernel_size)
+        transform_tag = attrs.transform_tag
+        out_dtype = attrs.out_dtype
+        out_dtype = inputs[0].dtype if out_dtype in ("same", "") else out_dtype
+        args = [inputs[0], strides, padding, dilation, channels, kernel_size, transform_tag]
+        if has_groups:
+            args.append(attrs.groups)
+        args.append(out_dtype)
+        return [topi_compute(*args)]
+
+    return _compute_im2col_transform
+
+@override_native_generic_func("im2col_transform_strategy")
+def im2col_transform_strategy(attrs, inputs, out_type, target):
+    """im2col_transform generic strategy"""
+    logger.warning("im2col_transform is not optimized for this platform.")
+    strategy = _op.OpStrategy()
+
+    strategy.add_implementation(
+        wrap_compute_im2col_transform(topi.nn.im2col_transform),
+        wrap_topi_schedule(topi.generic.schedule_im2col_transform_),
+        name="im2col_transform.generic", plevel= 15
+    )
+   
+    return strategy
+
 
 @override_native_generic_func("conv2d_strategy")
 def conv2d_strategy(attrs, inputs, out_type, target):
