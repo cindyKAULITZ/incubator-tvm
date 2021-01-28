@@ -73,7 +73,7 @@ def im2col_transform(Input, strides, padding, dilation, channel, kernel_size, tr
         #             [j % out_width*sw + i % kernel_width],
         #             tvm.tir.const(0, data_pad.dtype)), name='B')
         
-        B = te.compute(( upround(N * out_height * out_width, ALIGN) ,reduce_len), lambda i, j:\
+        B = te.compute(( upround(N * out_height * out_width, ALIGN) ,reduce_len), lambda j, i:\
                     te.if_then_else(te.all(i < in_channel * kernel_height * kernel_width, j < N * out_height * out_width),
                     data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
                     [j % out_width*sw + i % kernel_width],
