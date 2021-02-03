@@ -78,12 +78,13 @@ inline Expr MakeConvWinograd(Expr data, Expr weight, int tile_size, Array<IndexE
 }
 
 template <typename T>
-inline Expr MakeIm2colTransform(Expr data, Array<IndexExpr> strides, Array<IndexExpr> padding,
+inline Expr MakeIm2colTransform(Expr data, Array<IndexExpr> kernel_shape, Array<IndexExpr> strides, Array<IndexExpr> padding,
                          Array<IndexExpr> dilation, int groups, IndexExpr channels,
                          Array<IndexExpr> kernel_size, std::string data_layout, std::string kernel_layout,
                          std::string transform_tag, std::string out_layout, DataType out_dtype,
                          std::string op_name) {
   auto attrs = make_object<T>();
+  attrs->kernel_shape = std::move(kernel_shape);
   attrs->strides = std::move(strides);
   attrs->padding = std::move(padding);
   attrs->dilation = std::move(dilation);

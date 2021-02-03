@@ -8,7 +8,7 @@ from .util import get_pad_tuple
 from ..util import simplify, get_const_tuple, get_const_int, tag
 from .winograd_util import winograd_transform_matrices
 
-def im2col_transform(Input, strides, padding, dilation, channel, kernel_size, transform_tag, out_dtype=None):
+def im2col_transform(Input, kernel_shape, strides, padding, dilation, channel, kernel_size, transform_tag, out_dtype=None):
 
     # if len(Input.shape) == 5:
     #     N, ic_chunk, ih, iw, ic_bn = get_const_tuple(Input.shape)
@@ -16,9 +16,10 @@ def im2col_transform(Input, strides, padding, dilation, channel, kernel_size, tr
     #     in_channel = ic_chunk * ic_bn
     #     num_filter = oc_chunk * oc_bn
     # else:
+    print("kernel_shape in topi nn is ", kernel_shape)
     N, in_channel, ih, iw = get_const_tuple(Input.shape)
-    num_filter=1
-    ic=1 
+    num_filter = kernel_shape[0]
+    ic = kernel_shape[1] 
     kernel_height = kernel_size[0]
     kernel_width = kernel_size[1]
 
@@ -31,8 +32,7 @@ def im2col_transform(Input, strides, padding, dilation, channel, kernel_size, tr
     HPAD = pt + pb
     WPAD = pl + pr
     
-    dilation_h, dilation_w = dilation if isinstance(dilation, (tuple, list)) \
-        else (dilation, dilation)
+    dilation_h, dilation_w = dilation if isinstance(dilation, (tuple, list)) else (dilation, dilation)
 
     dilated_kernel_h = (kernel_height - 1) * dilation_h + 1
     dilated_kernel_w = (kernel_width - 1) * dilation_w + 1
@@ -52,11 +52,11 @@ def im2col_transform(Input, strides, padding, dilation, channel, kernel_size, tr
         return (x + align - 1) // align * align
     reduce_len = upround(in_channel * kernel_height * kernel_width, ALIGN)
 
-    print("num_filter = ",num_filter)
-    print("CO = ",upround(num_filter, ALIGN))
-    print("CI * KH * KW = ",reduce_len)
-    print(" N * OH * OW = ",upround(N * out_height * out_width, ALIGN))
-    print(" N * out_height * out_width= ",N * out_height * out_width)
+    # print("num_filter = ",num_filter)
+    # print("CO = ",upround(num_filter, ALIGN))
+    # print("CI * KH * KW = ",reduce_len)
+    # print(" N * OH * OW = ",upround(N * out_height * out_width, ALIGN))
+    # print(" N * out_height * out_width= ",N * out_height * out_width)
     if (transform_tag == "weight"):
          # A [CO, CI * KH * KW]
         A = te.compute((upround(num_filter, ALIGN), reduce_len), lambda i, j:

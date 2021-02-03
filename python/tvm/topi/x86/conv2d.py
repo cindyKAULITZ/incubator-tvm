@@ -125,14 +125,14 @@ def schedule_conv2d_nhwc(outs):
 def conv2d_nchw(data, kernel, strides, padding, dilation, out_dtype):
     layout = "NCHW"
     # default
-    # packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation,
-    #                           layout, layout, out_dtype)
-    # return unpack_NCHWc_to_nchw(packed_out, out_dtype)
+    packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation,
+                              layout, layout, out_dtype)
+    return unpack_NCHWc_to_nchw(packed_out, out_dtype)
     
     # im2col
-    packed_out = conv2d_NCHWc_im2col(data, kernel, strides, padding, dilation,
-                              layout, layout, out_dtype)
-    return packed_out
+    # packed_out = conv2d_NCHWc_im2col(data, kernel, strides, padding, dilation,
+    #                           layout, layout, out_dtype)
+    # return packed_out
 
 
 def schedule_conv2d_nchw(outs):

@@ -13,20 +13,20 @@ from . import conv2d_avx_1x1, conv2d_avx_common
 
 logger = logging.getLogger("topi")
 
-def im2col_transform(data, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype):
+def im2col_transform(data,kernel_shape, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype):
     # default
     # packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation,
     #                           layout, layout, out_dtype)
     # return unpack_NCHWc_to_nchw(packed_out, out_dtype)
     
     # im2col
-    packed_out = im2col_transform_compute(data, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype)
+    packed_out = im2col_transform_compute(data,kernel_shape, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype)
     return packed_out
 
 
 
 @autotvm.register_topi_compute("im2col_transform_compute.x86")
-def im2col_transform_compute(cfg, Input, strides, padding, dilation, channel, kernel_size, transform_tag, out_dtype=None):
+def im2col_transform_compute(cfg, Input, kernel_shape, strides, padding, dilation, channel, kernel_size, transform_tag, out_dtype=None):
 
     # if len(Input.shape) == 5:
     #     N, ic_chunk, ih, iw, ic_bn = get_const_tuple(Input.shape)
@@ -34,9 +34,10 @@ def im2col_transform_compute(cfg, Input, strides, padding, dilation, channel, ke
     #     in_channel = ic_chunk * ic_bn
     #     num_filter = oc_chunk * oc_bn
     # else:
+    print("KERNEL SHPAE in X86 is ", kernel_shape)
     N, in_channel, ih, iw = get_const_tuple(Input.shape)
-    num_filter=1
-    ic=1 
+    num_filter = kernel_shape[0]
+    ic = kernel_shape[1] 
     kernel_height = kernel_size[0]
     kernel_width = kernel_size[1]
 
@@ -49,8 +50,7 @@ def im2col_transform_compute(cfg, Input, strides, padding, dilation, channel, ke
     HPAD = pt + pb
     WPAD = pl + pr
     
-    dilation_h, dilation_w = dilation if isinstance(dilation, (tuple, list)) \
-        else (dilation, dilation)
+    dilation_h, dilation_w = dilation if isinstance(dilation, (tuple, list)) else (dilation, dilation)
 
     dilated_kernel_h = (kernel_height - 1) * dilation_h + 1
     dilated_kernel_w = (kernel_width - 1) * dilation_w + 1
@@ -64,7 +64,7 @@ def im2col_transform_compute(cfg, Input, strides, padding, dilation, channel, ke
     else:
         data_pad = Input
     
-    ALIGN = 16
+    ALIGN = 1
     def upround(x, align):
         return (x + align - 1) // align * align
     reduce_len = upround(in_channel * kernel_height * kernel_width, ALIGN)
@@ -74,14 +74,18 @@ def im2col_transform_compute(cfg, Input, strides, padding, dilation, channel, ke
          # A [CO, CI * KH * KW]
         A = te.compute((upround(num_filter, ALIGN), reduce_len), lambda i, j:
                         Input[i][j // kernel_width // kernel_height][j // kernel_width % kernel_height][j % kernel_width], name='A')
+        print("x86 AAAAAAAAAAAAAAAAAAAA SHAPE",A.shape)
+        
         return A
     elif (transform_tag == "data"):
         # B [CI * KH * KW, N * OH * OW]
-        B = te.compute((reduce_len, upround(N * out_height * out_width, ALIGN)), lambda i, j:\
+        B = te.compute(( upround(N * out_height * out_width, ALIGN) ,reduce_len), lambda j, i:\
                     te.if_then_else(te.all(i < in_channel * kernel_height * kernel_width, j < N * out_height * out_width),
                     data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
                     [j % out_width*sw + i % kernel_width],
                     tvm.tir.const(0, data_pad.dtype)), name='B')
+        print("x86 BBBBBBBBBBBBBBBBBBBBB SHAPE",B.shape)
+        
         return B
 
 # def schedule_im2col_transform(outs):

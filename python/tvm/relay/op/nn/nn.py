@@ -342,6 +342,7 @@ def conv3d(
 
 def im2col_transform(
     data,
+    kernel_shape=None,
     strides=(1, 1),
     padding=(0, 0),
     dilation=(1, 1),
@@ -395,8 +396,18 @@ def im2col_transform(
     """
     # convert 2-way padding to 4-way padding
     # padding = get_pad_tuple2d(padding)
+    if isinstance(kernel_size, int):
+        kernel_size = (kernel_size, kernel_size)
+    if isinstance(strides, int):
+        strides = (strides, strides)
+    if isinstance(dilation, int):
+        dilation = (dilation, dilation)
+    # TODO enforce 4-way padding in topi/nn/conv2d after #4644 merged
+    # convert 2-way padding to 4-way padding
+    padding = get_pad_tuple2d(padding)
     return _make.im2col_transform(
         data,
+        kernel_shape,
         strides,
         padding,
         dilation,

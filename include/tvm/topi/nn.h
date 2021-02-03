@@ -283,6 +283,32 @@ inline tvm::te::Tensor conv2d_nchw(const tvm::te::Tensor& I, const tvm::te::Tens
   return tvm::te::compute(output_shape, l, name, tag);
 }
 
+inline tvm::te::Tensor im2col_transform(const tvm::te::Tensor& I, const tvm::te::Tensor& W,
+                                   int pad_h = 0, int pad_w = 0, int stride_h = 1, int stride_w = 1,
+                                   std::string name = "T_im2col_transform",
+                                   std::string tag = kConv2dNCHW) {
+  CHECK_EQ(4, I->shape.size());
+  CHECK_EQ(4, W->shape.size());
+  auto pH = I->shape[2];
+  auto pW = I->shape[3];
+  tvm::Array<tvm::PrimExpr> output_shape{
+      I->shape[0],                                                    // B
+      W->shape[0],                                                    // O
+      indexdiv(I->shape[2] - W->shape[2] + 2 * pad_h, stride_h) + 1,  // H
+      indexdiv(I->shape[3] - W->shape[3] + 2 * pad_w, stride_w) + 1   // W
+  };
+  auto i = tvm::te::reduce_axis(tvm::Range{0, I->shape[1]}, "i");
+  auto kh = tvm::te::reduce_axis(tvm::Range{0, W->shape[2]}, "kh");
+  auto kw = tvm::te::reduce_axis(tvm::Range{0, W->shape[3]}, "kw");
+  auto T =
+      (pad_h == 0 && pad_w == 0) ? I : pad(I, {tvm::PrimExpr(0), tvm::PrimExpr(0), pad_h, pad_w});
+  auto l = [&](tvm::tir::Var b, tvm::tir::Var o, tvm::tir::Var h, tvm::tir::Var w) {
+    return tvm::sum(T(b, i, stride_h * h + kh, stride_w * w + kw) * W(o, i, kh, kw), {i, kh, kw});
+  };
+  return tvm::te::compute(output_shape, l, name, tag);
+}
+
+
 /*!
  * \brief Creates an operation for 2-D convolution layer with an HWCN-layout
  *

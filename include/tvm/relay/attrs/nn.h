@@ -178,6 +178,7 @@ struct Conv2DAttrs : public tvm::AttrsNode<Conv2DAttrs> {
 
 /*! \brief Attributes used in convolution operators */
 struct Conv2DIm2colAttrs : public tvm::AttrsNode<Conv2DIm2colAttrs> {
+  Array<IndexExpr> kernel_shape;
   Array<IndexExpr> strides;
   Array<IndexExpr> padding;
   Array<IndexExpr> dilation;
@@ -191,6 +192,9 @@ struct Conv2DIm2colAttrs : public tvm::AttrsNode<Conv2DIm2colAttrs> {
   DataType out_dtype;
 
   TVM_DECLARE_ATTRS(Conv2DIm2colAttrs, "relay.attrs.Conv2DIm2colAttrs") {
+    TVM_ATTR_FIELD(kernel_shape)
+        .set_default(NullValue<Array<IndexExpr>>())
+        .describe("Specifies the kernel shape of the convolution.");
     TVM_ATTR_FIELD(strides)
         .set_default(Array<IndexExpr>({1, 1}))
         .describe("Specifies the strides of the convolution.");

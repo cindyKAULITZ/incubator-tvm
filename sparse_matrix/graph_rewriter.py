@@ -1,6 +1,7 @@
 import tvm
 import tvm.relay as relay
 from tvm.relay import ExprFunctor
+from tvm.topi.util import get_const_tuple 
 from tvm.relay.ty import (TypeVar, IncompleteType, TensorType, FuncType,
                  TupleType, TypeRelation, RefType, GlobalTypeVar, TypeCall)
 
@@ -23,15 +24,22 @@ class InsertTransHelper(ExprFunctor):
 
     def show_mod(self):
         print(self.mod)
+        print("??????")
 
     def update_fn(self, fn):
         self.mod['main'] = fn
+        print("????")
         self.show_mod()
+        print("?????")
 
     def transform_conv2d(self):
+        print("into transform")
         self.chelper.transform_conv2d()
+        print("visit mod!")
         updated_fn = self.chelper.visit(self.mod['main'])
+        # print("to update")
         self.update_fn(updated_fn)
+        print("update finish")
 
     
         
@@ -85,18 +93,21 @@ class TransHelper(ExprFunctor):
             # check pattern
             print('catch op : ', call.op.name)
             print("meet conv2d with padding : ", call.attrs.padding)
-            print("meet conv2d with pakernel_sizedding : ", call.attrs.kernel_size)
+            print("meet conv2d with kernel_size : ", call.attrs.kernel_size)
+            # print("meet conv2d with output shape : ", call.op.shape)
             # print('catch op : ', call.op)
-            # print('catch op : ', call)
-            # print('catch op attrs : ', type(call.op))
+            # print('catch op get_const_tuple: ',call.dtype)
+            print('catch op checked_type: ',call.checked_type.shape)
+            print('catch op attrs : ', type(new_args[0]))
             print('append cast')
             # need to append new_args too.
             appended_args = []
             # appended_args = new_args
             # appended_args.append(relay.reshape(new_args[0],(4,4)))
             # appended_args.append(relay.reshape(new_args[1],(9,-1)))
-            appended_args.append(relay.nn.im2col_transform(new_args[0],channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="data"))
-            appended_args.append(relay.nn.im2col_transform(new_args[1],channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="weight"))
+            appended_args.append(relay.nn.im2col_transform(new_args[1] ,kernel_shape=new_args[1].type_annotation.shape ,strides=call.attrs.strides ,padding=call.attrs.padding ,channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="weight"))
+            appended_args.append(relay.nn.im2col_transform(new_args[0] ,kernel_shape=new_args[1].type_annotation.shape ,strides=call.attrs.strides ,padding=call.attrs.padding ,channels=call.attrs.channels,kernel_size=call.attrs.kernel_size,transform_tag="data"))
+            appended_args.append(relay.nn.dense(appended_args[0], appended_args[1]))
             
             # appended_args.append(relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],new_args[1]))
             # appended_args.append(relay.nn.dense(appended_args[0], appended_args[1]))
@@ -107,7 +118,9 @@ class TransHelper(ExprFunctor):
                 appended_args.append(new_args[i])
             
             # return relay.nn.contrib_conv2d_gemm_without_weight_transform(new_args[0],new_args[1],channels=4,kernel_size=(3,3))
-            return relay.nn.dense(appended_args[0], appended_args[1])
+            return relay.reshape(appended_args[2],call.checked_type.shape)
+            # return relay.nn.dense(appended_args[0], appended_args[1])
+            # return relay.reshape(appended_args[2],(-1,))
         print('end of call : ', call.op.name, ' with output-dtype : ', call.type_args)
         return relay.Call(new_fn, new_args, call.attrs)
 

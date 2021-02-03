@@ -157,13 +157,13 @@ with the layer input to produce a tensor of outputs.
 // relay.nn.im2col_transform
 TVM_REGISTER_NODE_TYPE(Conv2DIm2colAttrs);
 TVM_REGISTER_GLOBAL("relay.op.nn._make.im2col_transform")
-    .set_body_typed([](Expr data, Array<IndexExpr> strides, Array<IndexExpr> padding,
+    .set_body_typed([](Expr data, Array<IndexExpr> kernel_shape, Array<IndexExpr> strides, Array<IndexExpr> padding,
                        Array<IndexExpr> dilation, int groups, IndexExpr channels,
                        Array<IndexExpr> kernel_size, std::string data_layout, std::string kernel_layout,
                        std::string transform_tag, 
                        std::string out_layout, DataType out_dtype) {
       return MakeIm2colTransform<Conv2DIm2colAttrs>(
-          data, strides, padding, dilation, groups, channels, kernel_size, data_layout, kernel_layout,
+          data ,kernel_shape ,strides, padding, dilation, groups, channels, kernel_size, data_layout, kernel_layout,
           transform_tag , out_layout, out_dtype, "nn.im2col_transform");
     });
 
@@ -219,61 +219,43 @@ Array<IndexExpr> infer_im2col_newshape(const Array<IndexExpr>& data_shape, const
   Array<IndexExpr> oshape;
   Array<IndexExpr> ishape;
   Array<Integer> newshape;
-  LOG(WARNING) << "Call infer_im2col_newshape";
-  // if (param->reverse) {
-  //   ishape.Assign(data_shape.rbegin(), data_shape.rend());
-  //   newshape.Assign(data_shape[2], data_shape[3]);
-  // } else {
-  //   ishape = data_shape;
-  //   newshape = param->newshape;
-  // }
+//   LOG(WARNING) << "Call infer_im2col_newshape";
+
   ishape = data_shape;
   int k_h = param->kernel_size[0].as<IntImmNode>()->value;
   int k_w = param->kernel_size[1].as<IntImmNode>()->value;
-  int k_num = data_shape[1].as<IntImmNode>()->value;
-  int stride = param->strides[0].as<IntImmNode>()->value;
-  int padding = param->padding[0].as<IntImmNode>()->value;
+  int k_num = param->kernel_shape[0].as<IntImmNode>()->value;
+  int k_channel = param->kernel_shape[1].as<IntImmNode>()->value;
+  int stride_h = param->strides[0].as<IntImmNode>()->value;
+  int stride_w = param->strides[1].as<IntImmNode>()->value;
+  int dilation_h = param->dilation[0].as<IntImmNode>()->value;
+  int dilation_w = param->dilation[1].as<IntImmNode>()->value;
+  int padding_h = param->padding[0].as<IntImmNode>()->value;
+  int padding_w = param->padding[1].as<IntImmNode>()->value;
   int new_h, new_w;
   if(param->transform_tag == "data"){
-    int o_h = (data_shape[2].as<IntImmNode>()->value + 2*padding - k_h)/stride+1;
-    int o_w = (data_shape[3].as<IntImmNode>()->value + 2*padding - k_w)/stride+1;
-    printf("data_shape[2].as<IntImmNode>()->value = %d\n",data_shape[2].as<IntImmNode>()->value );
-    printf("padding = %d\n",padding );
-    printf("stride = %d\n",stride );
-    printf("o_h = %d, o_w = %d\n", o_h, o_w);
-    new_h = data_shape[1].as<IntImmNode>()->value * o_h * o_w;
-    new_w = k_h * k_w;
+    int dila_k_h = (k_h-1)*dilation_h +1;
+    int dila_k_w = (k_w-1)*dilation_w +1;
+    int o_h = (data_shape[2].as<IntImmNode>()->value + 2*padding_h - dila_k_h)/stride_h+1;
+    int o_w = (data_shape[3].as<IntImmNode>()->value + 2*padding_w - dila_k_w)/stride_w+1;
+
+    // printf("data_shape[2].as<IntImmNode>()->value = %d\n",data_shape[2].as<IntImmNode>()->value );
+    // printf("dilation_h = %d\n",dilation_h);
+    // printf("padding h = %d\n",padding_h);
+    // printf("padding w = %d\n",padding_w);
+    // printf("stride h = %d\n",stride_h );
+    // printf("stride w = %d\n",stride_w );
+    // printf("o_h = %d, o_w = %d\n", o_h, o_w);
+    new_h = data_shape[0].as<IntImmNode>()->value * o_h * o_w;
+    // TODO : need to put kernel shape as input (need kernel's dimension info)
+    new_w = k_h * k_w * k_channel;
   }else if(param->transform_tag == "weight"){
-    new_w = k_h * k_w;
+    new_w = k_h * k_w * k_channel;
     new_h = k_num;
   }
-  LOG(WARNING) << "infer shape [ " << param->transform_tag << " ] = " << new_h << ", " << new_w;
+//   LOG(WARNING) << "infer shape [ " << param->transform_tag << " ] = " << new_h << ", " << new_w;
   oshape.push_back(new_h);
   oshape.push_back(new_w);
-  
-    // output shape
-    // // compute newshape
-    // int k_h = param->kernel_size[0].as<IntImmNode>()->value;
-    // int k_w = param->kernel_size[1].as<IntImmNode>()->value;
-    // LOG(WARNING) << "Compute k_h K_w" << k_w;
-    // //   printf("kw = %d\n", k_w);
-    // int stride_h = param->strides[0].as<IntImmNode>()->value;
-    // int stride_w = param->strides[1].as<IntImmNode>()->value;
-    // LOG(WARNING) << "Compute stride" << stride;
-    // int padding_h = param->padding[0].as<IntImmNode>()->value;
-    // int padding_w = param->padding[1].as<IntImmNode>()->value;
-    // LOG(WARNING) << "Compute padding" << padding;
-    // int o_h = (data_shape[2].as<IntImmNode>()->value + 2*padding_h - k_h)/stride_h+1;
-    // int o_w = (data_shape[3].as<IntImmNode>()->value+ 2*padding_w - k_w)/stride_w+1;
-    // LOG(WARNING) << "Compute o_h, o_w" << o_h;
-    // newshape.push_back(o_h);
-    // newshape.push_back(o_w);
-    // LOG(WARNING) << "push back";
-    // // //   printf("o_h : %d, o_w : %d\n", o_h, o_w);
-    // // //   LOG(WARNING) << " o_h and o_w : " << o_h << " " << o_w;
-    // oshape.push_back(o_h);
-    // oshape.push_back(o_w);
-//   return oshape;
 
   return oshape;
 }

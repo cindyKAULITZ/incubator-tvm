@@ -199,6 +199,7 @@ def wrap_compute_im2col_transform(
     """Wrap im2col_transform topi compute"""
 
     def _compute_im2col_transform(attrs, inputs, out_type):
+        kernel_shape = get_const_tuple(attrs.kernel_shape)
         padding = get_const_tuple(attrs.padding)
         strides = get_const_tuple(attrs.strides)
         dilation = get_const_tuple(attrs.dilation)
@@ -207,7 +208,7 @@ def wrap_compute_im2col_transform(
         transform_tag = attrs.transform_tag
         out_dtype = attrs.out_dtype
         out_dtype = inputs[0].dtype if out_dtype in ("same", "") else out_dtype
-        args = [inputs[0], strides, padding, dilation, channels, kernel_size, transform_tag]
+        args = [inputs[0], kernel_shape, strides, padding, dilation, channels, kernel_size, transform_tag]
         if has_groups:
             args.append(attrs.groups)
         args.append(out_dtype)
