@@ -135,7 +135,28 @@ def schedule_im2col_transform_(outs):
     sch: Schedule
         The computation schedule for the op.
     """
-    return _default_schedule(outs, False)
+    outs = [outs] if isinstance(outs, te.tensor.Tensor) else outs
+    x = outs[0]
+    s = te.create_schedule([x.op for x in outs])
+    output = outs[0]
+    output_op = output.op
+    conv = output_op.input_tensors[0]
+
+    s[output].reorder(output.op.axis[1], output.op.axis[0])
+    # print('output shape : ', output.shape)
+    # print('conv shape : ', conv.shape)
+    # s[output].vectorize(output.op.axis[0])
+    if(output.shape[1]%conv.shape[1] == 0):
+        io, ii = s[output].split(output.op.axis[1], factor=output.shape[1]//conv.shape[1])
+        s[output].vectorize(io)
+        s[output].parallel(io)
+    else:
+        io, ii = s[output].split(output.op.axis[1], factor=output.shape[1]//2)
+        s[output].vectorize(io)
+        s[output].parallel(io)
+
+    return s
+    # return _default_schedule(outs, False)
 
 
 def schedule_conv2d_NCHWc(outs):
