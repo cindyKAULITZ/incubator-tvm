@@ -46,11 +46,17 @@ bool SparseDenseRel(const Array<Type>& types, int num_inputs, const Attrs& attrs
   if (data == nullptr) return false;
 
   if (weight_data->shape.size() == 1) {
-    // CSR case.
-    Array<IndexExpr> oshape({data->shape[0], weight_indptr->shape[0] - 1});
+    // CSR_transpose case.
+    Array<IndexExpr> oshape({weight_indptr->shape[0] - 1, data->shape[0]});
     reporter->Assign(types[4], TensorType(oshape, data->dtype));
     return true;
   }
+  // if (weight_data->shape.size() == 1) {
+  //   // CSR case.
+  //   Array<IndexExpr> oshape({data->shape[0], weight_indptr->shape[0] - 1});
+  //   reporter->Assign(types[4], TensorType(oshape, data->dtype));
+  //   return true;
+  // }
 
   if (weight_data->shape.size() == 3) {
     // BSR case.

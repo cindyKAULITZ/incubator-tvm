@@ -52,11 +52,27 @@ def sparse_dense(data, weight_data, weight_indices, weight_indptr):
     """
     assert len(weight_data.shape) in (1, 3)
     if len(weight_data.shape) == 1:
-        func = _sparse_dense_csrmm
+        print("SPARSE FORMAT = CSR")
+        # func = _sparse_dense_csrmm
+        func = _sparse_dense_csrmm_transpose
     if len(weight_data.shape) == 3:
         func = _sparse_dense_bsrmm
     return func(data, weight_data, weight_indices, weight_indptr)
 
+def _sparse_dense_csrmm_transpose(data, weight_data, weight_indices, weight_indptr):
+    oshape = (get_const_tuple(weight_indptr.shape)[0] - 1, get_const_tuple(data.shape)[0] )
+
+    def f(row, i):
+        row_start = weight_indptr[row]
+        row_end = weight_indptr[row + 1]
+        row_elems = row_end - row_start
+        elem_idx = te.reduce_axis((0, row_elems), name="elem_idx")
+        elem = row_start + elem_idx
+        a_val = weight_data[elem]
+        weight_val = data[i, weight_indices[elem]]
+        return te.sum(a_val * weight_val, axis=elem_idx)
+
+    return te.compute(oshape, f, tag="sparse_dense_csrmm")
 
 def _sparse_dense_csrmm(data, weight_data, weight_indices, weight_indptr):
     oshape = (get_const_tuple(data.shape)[0], get_const_tuple(weight_indptr.shape)[0] - 1)
