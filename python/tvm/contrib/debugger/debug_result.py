@@ -196,12 +196,15 @@ class DebugResult(object):
         with open(os.path.join(self._dump_path, graph_dump_file_name), "w") as outfile:
             json.dump(graph, outfile, indent=4, sort_keys=False)
 
-    def get_debug_result(self, sort_by_time=True):
+    def get_debug_result(self, sort_by_time=False):
         """Return the debugger result"""
         header = ["Node Name", "Ops", "Time(us)", "Time(%)", "Shape", "Inputs", "Outputs"]
         lines = ["---------", "---", "--------", "-------", "-----", "------", "-------"]
         eid = 0
         data = []
+        myname = []
+        myshape = []
+        mytime = []
         total_time = sum(time[0] for time in self._time_list)
         for node, time in zip(self._nodes_list, self._time_list):
             num_outputs = self.get_graph_node_output_num(node)
@@ -218,7 +221,16 @@ class DebugResult(object):
                 outputs = str(node["attrs"]["num_outputs"])
                 node_data = [name, op, time_us, time_percent, shape, inputs, outputs]
                 data.append(node_data)
+                if "dense" in name:
+                    myname.append(name)
+                    myshape.append(shape)
+                    mytime.append(time_us)
                 eid += 1
+        import pandas as pd
+        df = pd.DataFrame(data=myname,columns=['name'])
+        df['shape'] = myshape
+        df['time_us'] = mytime
+        df.to_csv(path_or_buf="/home/hhliao/incubator-tvm/sparse_matrix/log.csv", mode='a', index=False)
 
         if sort_by_time:
             # Sort on the basis of execution time. Prints the most expensive ops in the start.
@@ -241,7 +253,7 @@ class DebugResult(object):
             log.append(fmt.format(*row))
         return "\n".join(log)
 
-    def display_debug_result(self, sort_by_time=True):
+    def display_debug_result(self, sort_by_time=False):
         """Displays the debugger result"""
         print(self.get_debug_result(sort_by_time))
 
