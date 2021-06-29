@@ -62,6 +62,7 @@ bool DenseRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
   } else {
     if (weight == nullptr) return false;
     Array<tvm::PrimExpr> wshape = weight->shape;
+    // LOG(WARNING) << "CHECK WEIGHT SHAPE WITH " << static_cast<int>(weight->shape.size());
     CHECK(static_cast<int>(weight->shape.size()) == 2);
     // LOG(WARNING) << "CHECK SHAPE WITH " << data->shape[data->shape.size() - 1] << " " << weight->shape[1];
     CHECK(reporter->AssertEQ(data->shape[data->shape.size() - 1], weight->shape[1]))

@@ -266,10 +266,11 @@ def schedule_conv2d_NCHWc(cfg, outs):
                 conv2d_avx_1x1._schedule_conv_NCHWc(*args)
             else:
                 conv2d_avx_common._schedule_conv_NCHWc(*args)
-
-    traverse_inline(s, outs[0].op, _callback)
+    # turn off x86 opt
+    # traverse_inline(s, outs[0].op, _callback)
     return s
 
+# chao-lin Lee im2col
 @autotvm.register_topi_compute("conv2d_NCHWc_im2col.x86")
 def conv2d_NCHWc_im2col(cfg, data, kernel, strides, padding, dilation, layout, out_layout, out_dtype='float32'):
     """Compute conv2d with NCHWc layout."""

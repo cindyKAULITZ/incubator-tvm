@@ -54,7 +54,7 @@ def _search_dense_op_weight(expr):
     return _ffi_api.search_dense_op_weight(expr)
 
 
-def process_params(expr, params, block_size, sparsity_threshold):
+def process_params(expr, params, block_size, sparsity_threshold, mode):
     """[summary]
 
     Parameters
@@ -75,12 +75,43 @@ def process_params(expr, params, block_size, sparsity_threshold):
     """
     memo = SparseAnalysisResult(weight_name=[], weight_shape=[])
     weight_names = _search_dense_op_weight(expr)
-    for name in weight_names:
+    print("in process params")
+    print(weight_names)
+    # print(weight_names.size)
+    print(len(mode))
+    print(mode)
+    mode = mode[::-1]
+    for name, mo in zip(weight_names, mode):
         name = str(name)
         w_np = params[name].asnumpy()
         sparsity = 1.0 - (np.count_nonzero(w_np) / w_np.size)
-        if sparsity >= sparsity_threshold:
-            sparse_weight = sp.bsr_matrix(w_np, blocksize=block_size)
+        print("weight name : ", name)
+        print("sparsity : ", sparsity)
+        # if sparsity >= sparsity_threshold:
+        if sparsity >= sparsity_threshold and ("depth" not in name):
+        # if sparsity >= sparsity_threshold and ("conv" in name) and ("depth" not in name):
+            sparse_weight = sp.csr_matrix(w_np)
+            if mo == 1:
+                print("mode bsr")
+                print(w_np.size)
+                print(block_size[0])
+                if w_np.size/block_size[0] == 0:
+                    sparse_weight = sp.bsr_matrix(w_np, blocksize=block_size)
+                else:
+                    sparse_weight = sp.bsr_matrix(w_np, blocksize=(1,1))
+            elif mo == 0:
+                print("mode csr")
+                sparse_weight = sp.csr_matrix(w_np)
+            else:
+                print("mode nor")
+                continue
+                assert("Not Implement yet.")
+            # sparse_weight = sp.coo_matrix(w_np)
+
+            # print('data : ', sparse_weight.data.shape)
+            # print('indiecs : ', sparse_weight.indices.shape)
+            # print('indptr : ', sparse_weight.indptr.shape)
+
             # remove dense weight
             del params[name]
             memo.weight_name.append(name)

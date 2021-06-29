@@ -16,7 +16,7 @@ def im2col_transform(Input, kernel_shape, strides, padding, dilation, channel, k
     #     in_channel = ic_chunk * ic_bn
     #     num_filter = oc_chunk * oc_bn
     # else:
-    print("kernel_shape in topi nn is ", kernel_shape)
+    # print("kernel_shape in topi nn is ", kernel_shape)
     N, in_channel, ih, iw = get_const_tuple(Input.shape)
     num_filter = kernel_shape[0]
     ic = kernel_shape[1] 
@@ -39,7 +39,13 @@ def im2col_transform(Input, kernel_shape, strides, padding, dilation, channel, k
     
     out_height = (ih + HPAD - dilated_kernel_h) // sh + 1
     out_width = (iw + WPAD - dilated_kernel_w) // sw + 1
-
+    # print("dilation_h = ", dilation_h)
+    # print("dilation_w = ", dilation_w)
+    # print("sh = ", sh)
+    # print("sw = ", sw)
+    # print("OH = (", ih ," + ", HPAD, " - ",dilated_kernel_h,") // ", sh, "+ 1") 
+    # print("out_h = ", out_height)
+    # print("out_w = ", out_width)
     DO_PAD = (HPAD != 0 and WPAD != 0)
     if DO_PAD:
         data_pad = pad(Input, (0, 0, HPAD//2, WPAD//2), name="data_pad")
@@ -61,22 +67,14 @@ def im2col_transform(Input, kernel_shape, strides, padding, dilation, channel, k
          # A [CO, CI * KH * KW]
         A = te.compute((upround(num_filter, ALIGN), reduce_len), lambda i, j:
                         Input[i][j // kernel_width // kernel_height][j // kernel_width % kernel_height][j % kernel_width], name='A')
-        print("AAAAAAAAAAAAAAAAAAAA SHAPE",A.shape)
         return A
 
     elif (transform_tag == "data"):
         # B [CI * KH * KW, N * OH * OW]
-        
-        # B = te.compute((reduce_len, upround(N * out_height * out_width, ALIGN)), lambda i, j:\
-        #             te.if_then_else(te.all(i < in_channel * kernel_height * kernel_width, j < N * out_height * out_width),
-        #             data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
-        #             [j % out_width*sw + i % kernel_width],
-        #             tvm.tir.const(0, data_pad.dtype)), name='B')
         
         B = te.compute(( upround(N * out_height * out_width, ALIGN) ,reduce_len), lambda j, i:\
                     te.if_then_else(te.all(i < in_channel * kernel_height * kernel_width, j < N * out_height * out_width),
                     data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
                     [j % out_width*sw + i % kernel_width],
                     tvm.tir.const(0, data_pad.dtype)), name='B')
-        print("BBBBBBBBBBBBBBBBBBBBB SHAPE",B.shape)
         return B

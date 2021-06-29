@@ -19,7 +19,7 @@
 from __future__ import absolute_import
 import tvm
 from tvm import te
-
+from . import cpp
 from ..util import get_const_tuple
 
 
@@ -53,10 +53,15 @@ def sparse_dense(data, weight_data, weight_indices, weight_indptr):
     assert len(weight_data.shape) in (1, 3)
     if len(weight_data.shape) == 1:
         print("SPARSE FORMAT = CSR")
-        # func = _sparse_dense_csrmm
-        func = _sparse_dense_csrmm_transpose
+        # normal version for normal dense -> sparse_dense
+        func = _sparse_dense_csrmm
+        
+        # transpose_version for conv2d -> sparse_dense
+        # func = _sparse_dense_csrmm_transpose
     if len(weight_data.shape) == 3:
+        print("SPARSE FORMAT = BSR")
         func = _sparse_dense_bsrmm
+        # func = _sparse_dense_bsrmm_transpose
     return func(data, weight_data, weight_indices, weight_indptr)
 
 def _sparse_dense_csrmm_transpose(data, weight_data, weight_indices, weight_indptr):
@@ -72,7 +77,7 @@ def _sparse_dense_csrmm_transpose(data, weight_data, weight_indices, weight_indp
         weight_val = data[i, weight_indices[elem]]
         return te.sum(a_val * weight_val, axis=elem_idx)
 
-    return te.compute(oshape, f, tag="sparse_dense_csrmm")
+    return te.compute(oshape, f, tag="sparse_dense_csrmm_transpose")
 
 def _sparse_dense_csrmm(data, weight_data, weight_indices, weight_indptr):
     oshape = (get_const_tuple(data.shape)[0], get_const_tuple(weight_indptr.shape)[0] - 1)
@@ -89,8 +94,24 @@ def _sparse_dense_csrmm(data, weight_data, weight_indices, weight_indptr):
 
     return te.compute(oshape, f, tag="sparse_dense_csrmm")
 
+def _sparse_dense_coomm(data, weight_data, weight_row, weight_col, weight_shape):
+    oshape = (get_const_tuple(data.shape)[0], get_const_tuple(weight_shape))
 
-def _sparse_dense_bsrmm(data, weight_data, weight_indices, weight_indptr):
+    def f(i, row):
+        row_start = weight_indptr[row]
+        row_end = weight_indptr[row + 1]
+        row_elems = row_end - row_start
+        elem_idx = te.reduce_axis((0, row_elems), name="elem_idx")
+        elem = row_start + elem_idx
+        a_val = weight_data[elem]
+        weight_val = data[i, weight_indices[elem]]
+        return te.sum(a_val * weight_val, axis=elem_idx)
+
+    return te.compute(oshape, f, tag="sparse_dense_csrmm")
+
+# TODO : modify to transpose version
+# write an transpose private function to call
+def _sparse_dense_bsrmm_transpose(data, weight_data, weight_indices, weight_indptr):
     (m, _) = get_const_tuple(data.shape)
     (_, bs_r, bs_c) = get_const_tuple(weight_data.shape)
     (num_blocks_plus_1,) = get_const_tuple(weight_indptr.shape)
@@ -109,6 +130,83 @@ def _sparse_dense_bsrmm(data, weight_data, weight_indices, weight_indptr):
         return te.sum(block_ij_val * x_val, axis=[elem_idx, c])
 
     idxd = tvm.tir.indexdiv
+    idxm = tvm.tir.indexmod
+
+    bsrmm_block = te.compute((m, num_blocks, bs_r), _compute_block, tag="sparse_dense_bsrmm_block")
+    to_transpose = te.compute(
+        (m, num_blocks * bs_r),
+        lambda m, n: bsrmm_block[m, idxd(n, bs_r), idxm(n, bs_r)],
+        tag="sparse_dense_bsrmm",
+    )
+    # (m, _) = get_const_tuple(data.shape)
+    # (_, bs_r, bs_c) = get_const_tuple(weight_data.shape)
+    # (num_blocks_plus_1,) = get_const_tuple(weight_indptr.shape)
+    # num_blocks = num_blocks_plus_1 - 1
+
+    # # i     for m
+    # # nb_j  for which row(mapping to block)
+    # # j     for which col(mapping to block)
+    # def _compute_block(i, nb_j, j):
+    #     row_start = weight_indptr[nb_j]
+    #     row_end = weight_indptr[nb_j + 1]
+    #     # can get number of block in this row
+    #     row_elems = row_end - row_start
+    #     # get row length of a block
+    #     elem_idx = te.reduce_axis((0, row_elems), name="elem_idx")
+    #     block_offset = row_start + elem_idx
+    #     # get col length of a block
+    #     c = te.reduce_axis((0, bs_c), name="c")
+    #     block_j = weight_indices[block_offset]
+    #     block_ij_val = weight_data[block_offset][j][c]
+    #     x_val = data[i, bs_c * block_j + c]
+    #     return te.sum(block_ij_val * x_val, axis=[elem_idx, c])
+
+    # # which row
+    # idxd = tvm.tir.indexdiv
+
+    # # which column
+    # idxm = tvm.tir.indexmod
+
+    # bsrmm_block = te.compute((m, num_blocks, bs_r), _compute_block, tag="sparse_dense_bsrmm_block")
+    return_transpose = te.compute(
+        (num_blocks * bs_r,m),
+        lambda m, n: to_transpose[n][m],
+        tag="transpose",
+    )
+    # print("????//")
+    # print(to_transpose.shape)
+    # print(return_transpose.shape)
+    # return cpp.transpose(to_transpose, None)
+    return return_transpose
+
+def _sparse_dense_bsrmm(data, weight_data, weight_indices, weight_indptr):
+    (m, _) = get_const_tuple(data.shape)
+    (_, bs_r, bs_c) = get_const_tuple(weight_data.shape)
+    (num_blocks_plus_1,) = get_const_tuple(weight_indptr.shape)
+    num_blocks = num_blocks_plus_1 - 1
+
+    # i     for m
+    # nb_j  for which row(mapping to block)
+    # j     for which col(mapping to block)
+    def _compute_block(i, nb_j, j):
+        row_start = weight_indptr[nb_j]
+        row_end = weight_indptr[nb_j + 1]
+        # can get number of block in this row
+        row_elems = row_end - row_start
+        # get row length of a block
+        elem_idx = te.reduce_axis((0, row_elems), name="elem_idx")
+        block_offset = row_start + elem_idx
+        # get col length of a block
+        c = te.reduce_axis((0, bs_c), name="c")
+        block_j = weight_indices[block_offset]
+        block_ij_val = weight_data[block_offset][j][c]
+        x_val = data[i, bs_c * block_j + c]
+        return te.sum(block_ij_val * x_val, axis=[elem_idx, c])
+
+    # which row
+    idxd = tvm.tir.indexdiv
+
+    # which column
     idxm = tvm.tir.indexmod
 
     bsrmm_block = te.compute((m, num_blocks, bs_r), _compute_block, tag="sparse_dense_bsrmm_block")

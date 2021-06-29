@@ -43,15 +43,26 @@ class DenseOpWeightVisitor : private ExprVisitor {
   DenseOpWeightVisitor() : dense_op_(Op::Get("nn.dense")) {}
 
   Array<String> Search(const Expr& expr) {
+    printf("In search\n");
     VisitExpr(expr);
     return memo_;
   }
 
  private:
   void VisitExpr_(const CallNode* n) final {
+    printf("in VisitExpr\n");
     if (n->op == dense_op_) {
+      printf("dense op\n");
+      printf("size %d \n", n->args.size());
       const auto weight = n->args[1].as<VarNode>();
+      // const auto weight = n->args[0].as<CallNode>()->args[0].as<VarNode>();
+      // auto weight_imm = n->args[1].as<IntImmNode>()->value;
+      // printf("weight???? %s\n", weight->name_hint().c_str ());
+      // std::cout << std::string(weight.name) << std::endl;
       if (weight) {
+        printf("if weight\n");
+        std::cout << std::string(weight->name_hint()) << std::endl;
+        printf("if weight name\n");
         memo_.push_back(weight->name_hint());
       }
     }
@@ -75,7 +86,9 @@ class DenseToSparseDenseMutator : public ExprRewriter {
   DenseToSparseDenseMutator(const Array<ObjectRef>& weight_name,
                             const Array<Array<PrimExpr> >& weight_shape)
       : dense_op_(Op::Get("nn.dense")), sparse_dense_op_(Op::Get("nn.sparse_dense")) {
+    printf("in DenseToSparseDenseMutator\n");
     CHECK_EQ(weight_name.size(), weight_shape.size());
+    printf("pass seize check DenseToSparseDenseMutator\n");
     for (size_t i = 0; i < weight_name.size(); ++i) {
       CHECK(weight_name[i]->IsInstance<runtime::StringObj>());
       std::string k = weight_name[i].as<runtime::StringObj>()->data;
@@ -91,19 +104,30 @@ class DenseToSparseDenseMutator : public ExprRewriter {
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
     if (pre->op == dense_op_) {
       const auto weight = pre->args[1].as<VarNode>();
+      printf("in Rewrite\n");
+
       if (weight) {
         if (target_weights_.count(weight->name_hint())) {
+          printf("in call sparse dense\n");
           const auto& prefix = weight->name_hint();
           const auto& ws = target_weights_.at(prefix);
           const auto data = post.as<CallNode>()->args[0];
           auto ws_data_type =
+              relay::TensorType({ws.at(0)}, DataType::Float(32));
+          auto ws_indices_type = relay::TensorType({ws.at(1)}, DataType::Int(32));
+          auto ws_indptr_type = relay::TensorType({ws.at(2)}, DataType::Int(32));
+          if (ws.size() == 5){
+            ws_data_type =
               relay::TensorType({ws.at(0), ws.at(1), ws.at(2)}, DataType::Float(32));
-          auto ws_indices_type = relay::TensorType({ws.at(3)}, DataType::Int(32));
-          auto ws_indptr_type = relay::TensorType({ws.at(4)}, DataType::Int(32));
+            ws_indices_type = relay::TensorType({ws.at(3)}, DataType::Int(32));
+            ws_indptr_type = relay::TensorType({ws.at(4)}, DataType::Int(32));
+          }
+          
+          
           Var weight_data(prefix + ".data", ws_data_type);
           Var weight_indices(prefix + ".indices", ws_indices_type);
           Var weight_indptr(prefix + ".indptr", ws_indptr_type);
-
+          printf("out call sparse dense\n");
           return Call(sparse_dense_op_, {data, weight_data, weight_indices, weight_indptr});
         }
       }

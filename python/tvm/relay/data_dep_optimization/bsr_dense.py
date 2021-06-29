@@ -23,7 +23,7 @@ from tvm.relay.analysis.sparse_dense import process_params
 from .utils import _run_opt_pass
 
 
-def convert(func, params, blocksize, sparsity_threshold):
+def convert(func, params, blocksize, sparsity_threshold, mode):
     """Convert a dense func and according parameters to block sparse
 
     Parameters
@@ -47,7 +47,7 @@ def convert(func, params, blocksize, sparsity_threshold):
     params: Dict[Srting, tvm.nd.array]
         New params with BSR matrix for mutated Expr
     """
-    weight_info = process_params(func, params, blocksize, sparsity_threshold)
+    weight_info = process_params(func, params, blocksize, sparsity_threshold, mode)
     new_func = _run_opt_pass(
         func, relay.transform.DenseToSparse(weight_info.weight_name, weight_info.weight_shape)
     )

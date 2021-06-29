@@ -13,17 +13,6 @@ from . import conv2d_avx_1x1, conv2d_avx_common
 
 logger = logging.getLogger("topi")
 
-def im2col_transform(data,kernel_shape, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype):
-    # default
-    # packed_out = conv2d_NCHWc(data, kernel, strides, padding, dilation,
-    #                           layout, layout, out_dtype)
-    # return unpack_NCHWc_to_nchw(packed_out, out_dtype)
-    
-    # im2col
-    packed_out = im2col_transform_compute(data,kernel_shape, strides, padding, dilation, channel,kernel_size, transform_tag, out_dtype)
-    return packed_out
-
-
 
 @autotvm.register_topi_compute("im2col_transform_compute.x86")
 def im2col_transform_compute(cfg, Input, kernel_shape, strides, padding, dilation, channel, kernel_size, transform_tag, out_dtype=None):
@@ -34,7 +23,7 @@ def im2col_transform_compute(cfg, Input, kernel_shape, strides, padding, dilatio
     #     in_channel = ic_chunk * ic_bn
     #     num_filter = oc_chunk * oc_bn
     # else:
-    print("KERNEL SHPAE in X86 is ", kernel_shape)
+    # print("KERNEL SHPAE in X86 is ", kernel_shape)
     N, in_channel, ih, iw = get_const_tuple(Input.shape)
     num_filter = kernel_shape[0]
     ic = kernel_shape[1] 
@@ -74,7 +63,6 @@ def im2col_transform_compute(cfg, Input, kernel_shape, strides, padding, dilatio
          # A [CO, CI * KH * KW]
         A = te.compute((upround(num_filter, ALIGN), reduce_len), lambda i, j:
                         Input[i][j // kernel_width // kernel_height][j // kernel_width % kernel_height][j % kernel_width], name='A')
-        print("x86 AAAAAAAAAAAAAAAAAAAA SHAPE",A.shape)
         
         return A
     elif (transform_tag == "data"):
@@ -84,22 +72,5 @@ def im2col_transform_compute(cfg, Input, kernel_shape, strides, padding, dilatio
                     data_pad[j // (out_height*out_width)][i // (kernel_height*kernel_width)][j // out_width % out_height*sh + i // kernel_width % kernel_height]
                     [j % out_width*sw + i % kernel_width],
                     tvm.tir.const(0, data_pad.dtype)), name='B')
-        print("x86 BBBBBBBBBBBBBBBBBBBBB SHAPE",B.shape)
         
         return B
-
-# def schedule_im2col_transform(outs):
-#     """Create schedule for tensors"""
-#     return schedule_im2col_transform_(outs)
-
-
-# @autotvm.register_topi_schedule("im2col_transform.x86")
-# def schedule_im2col_transform_(cfg, outs):
-#     """Create schedule for tensors"""
-#     target = tvm.target.Target.current(allow_none=False)
-#     outs = [outs] if isinstance(outs, te.tensor.Tensor) else outs
-#     if target.kind.name not in ("llvm", "c"):
-#         raise RuntimeError("schedule not registered for '%s'" % target)
-#     s = te.create_schedule([x.op for x in outs])
-    
-#     return s
