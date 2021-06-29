@@ -18,21 +18,54 @@ import tvm
 import tvm.relay as relay
 from tvm.contrib import graph_runtime
 # from tvm.relay.transform import FastMath
+import scipy.sparse as sparse
+import scipy.stats as stats
+import numpy as np
 
 
 # %%
-np_weight = np.array( [[[[ 0.1, 0.0, 0.0], 
-                       [ 0.1, 0.0, 0.0],
-                       [ 0.1, 0.0, 0.0]]]]).astype('float32')
+np.random.seed(42)
+
+density = 0.01
+
+
+# %%
+# A = sparse.random(4, 4, density=density)
+A = np.array( [[[[ 0.1, 0.2, 0.3, 0.4], 
+                [ 0.1, 0.2, 0.3, 0.4],
+                [ 0.1, 0.2, 0.3, 0.4],
+                ],[[ 0.5, 0.6, 0.7, 0.8], 
+                [  0.5, 0.6, 0.7, 0.8],
+                [  0.5, 0.6, 0.7, 0.8],
+                ],[[ 0.9, 1.1, 1.2, 1.3], 
+                [ 0.9, 1.1, 1.2, 1.3],
+                [ 0.9, 1.1, 1.2, 1.3],
+                ]]]).astype('float32')
+# Convert the sparse matrix to a full matrix
+# A = A.toarray()
+# np_weight = np.array( [[A]]).astype('float32')
+                       
+np_weight = np.array( [[[[ 0.0, 0.0, 0.9], 
+                       [ 0.0, 0.0, 0.8],
+                       [ 0.0, 0.0, 0.6]],[[ 0.0, 0.0, 0.9], 
+                       [ 0.0, 0.0, 0.8],
+                       [ 0.0, 0.0, 0.6]],[[ 0.0, 0.0, 0.9], 
+                       [ 0.0, 0.0, 0.8],
+                       [ 0.0, 0.0, 0.6]]]]).astype('float32')
+np_weight2 = np.array( [[ 0.1, 0.0], 
+                       [ 0.1, 0.0]
+                       ]).astype('float32')
 
 
 # %%
 nd_weight=nd.array(np_weight)
+nd_weight2=nd.array(np_weight2)
 print(nd_weight)
 
 
 # %%
 W = mx.initializer.Constant(nd_weight)
+W2 = mx.initializer.Constant(nd_weight2)
 print(W)
 
 
@@ -51,11 +84,14 @@ print(B)
 
 
 # %%
-conv2d_layer = nn.Conv2D(channels=1, kernel_size=(3, 3), 
+# conv2d_layer = nn.Conv2D(channels=1, kernel_size=(64, 64), 
+#                          strides=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1,
+#                          layout='NCHW', activation= None, use_bias=False, weight_initializer=W,bias_initializer=B, in_channels=0)
+conv2_layer = nn.Conv2D(channels=3, kernel_size=(3, 3), 
                          strides=(1, 1), padding=(1, 1), dilation=(1, 1), groups=1,
                          layout='NCHW', activation= None, use_bias=False, weight_initializer=W,bias_initializer=B, in_channels=0)
 
-# dense_layer = nn.Dense(units=1 activation= None, use_bias=False, weight_initializer=W, bias_initializer=B)
+dense_layer = nn.Dense(units=3 ,activation= "relu", use_bias=False, weight_initializer=None, bias_initializer=None)
 
 
 # %%
@@ -77,16 +113,35 @@ class op(nn.HybridBlock):
 
 
 # %%
-np_input = np.array([[[
-                    [ 0.1, 0.2, 0.5, 0.1], 
-                    [ 0.1, 0.2, 0.5, 0.1], 
-                    [ 0.1, 0.2, 0.5, 0.1], 
-                    [ 0.1, 0.2, 0.5, 0.1] 
-                    ]]]).astype('float32')
+B = sparse.random(1000, 1000*3, density=1.0)
+# # Convert the sparse matrix to a full matrix
+B = B.toarray()
+B = np.reshape(B, (1,3,1000,1000))
+np_input = B
+# np_input = np.array( [[B]]).astype('float32')
+# np_input = np.array( [[[[ 0.1, 0.2, 0.3, 0.4], 
+#                 [ 0.1, 0.2, 0.3, 0.4],
+#                 [ 0.1, 0.2, 0.3, 0.4],
+#                 [ 0.1, 0.2, 0.3, 0.4]
+#                 ],[[ 0.5, 0.6, 0.7, 0.8], 
+#                 [  0.5, 0.6, 0.7, 0.8],
+#                 [  0.5, 0.6, 0.7, 0.8],
+#                 [  0.5, 0.6, 0.7, 0.8]
+#                 ],[[ 0.9, 1.1, 1.2, 1.3], 
+#                 [ 0.9, 1.1, 1.2, 1.3],
+#                 [ 0.9, 1.1, 1.2, 1.3],
+#                 [ 0.9, 1.1, 1.2, 1.3]
+#                 ]]]).astype('float32')
+# np_input = np.array([[[
+#                     [ 0.1, 0.2, 0.5, 0.1], 
+#                     [ 0.1, 0.2, 0.5, 0.1], 
+#                     [ 0.1, 0.2, 0.5, 0.1], 
+#                     [ 0.1, 0.2, 0.5, 0.1] 
+#                     ]]]).astype('float32')
 
 
 # %%
-mxnet_input = nd.array(np_input)
+mxnet_input = mx.nd.array(np_input)
 print("mxnet_input")
 print(mxnet_input)
 flat = mxnet_input.flatten()
@@ -95,30 +150,41 @@ print(flat)
 
 # %%
 net = nn.HybridSequential()
-net.add(conv2d_layer)
+net.add(conv2_layer)
+# net.add(conv2d_layer,conv2d2_layer,dense_layer)
+# net.add(conv2d_layer)
+
+# net.add(dense_layer)
 # net.hybridize()
-net.collect_params()
+# net.collect_params()
 net.initialize()
 
 
 # %%
-net.summary(mxnet_input)
+# net.summary(mxnet_input)
 
 
 # %%
 print("net")
 print(net)
 
+net.initialize()
+# x = nd.random.uniform(shape=(1,1,4,4))
+# net(x)
 
 
-net(nd.array(mxnet_input))
-print(nd.array(mxnet_input))
+# # net(nd.array(mxnet_input))
+# net(mxnet_input)
+# # print(nd.array(mxnet_input))
 
 net.hybridize()
-net.forward(nd.array(mxnet_input))
-net(nd.array(mxnet_input))
+net.forward(mx.nd.array(mxnet_input))
+# net(nd.array(mxnet_input))
 # print(net.params())
-net.export("sparse_conv", epoch=0)
+
+# net.export("single_conv2d_1x3x4x4", epoch=0)
+print("single_conv2d_1x3x4x4")
+
 # net.save_parameters("simple_conv")
 # mx.model.save_checkpoint("simple_conv",0,)
 # net.save("simple_conv",1)

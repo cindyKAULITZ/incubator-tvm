@@ -330,23 +330,29 @@ if target == 'llvm -system-lib':
      # Load model
     
     # mx_sym, args, auxs = mx.model.load_checkpoint("simple_conv", 0) 
-    mx_sym, args, auxs = mx.model.load_checkpoint("sparse_conv", 0) 
+    mx_sym, args, auxs = mx.model.load_checkpoint("sparse_conv_dense", 0) 
     sym, params = relay.frontend.from_mxnet(mx_sym, shape_dict, dtype, args,auxs)
     print(sym)
     # sym , params = run_sparse(sym, params, shape_dict, target, ctx, 1, 0.002)
-    print(sym)
+    desired_layouts = {'nn.conv2d': ['IMCO', 'IMCO']}
+    # desired_layouts = {'nn.conv2d': ['NCHW', '11HW']}
+    seq = tvm.transform.Sequential([relay.transform.RemoveUnusedFunctions(),
+                                relay.transform.ConvertLayout(desired_layouts)])
+    
 
     # print("key = ", params.keys())
-    for key in params.keys():
-        print("key = ", key)
-        print("params = ", params[key])
-        arr = params[key].asnumpy()
+    # for key in params.keys():
+    #     print("key = ", key)
+    #     print("params = ", params[key])
+    #     arr = params[key].asnumpy()
     
     path = "./" 
     modelname = "test"
     input_name = "data"
-    
-    with relay.build_config(opt_level=0):
+    with tvm.transform.PassContext(opt_level=3):
+        sym = seq(sym)
+        print(sym)
+    # with relay.build_config(opt_level=0):
         graph, lib, params = relay.build(sym, target=target, params=params)
     
    
